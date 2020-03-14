@@ -28,12 +28,19 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
+@import UIKit;
 #import "ORKLabel.h"
 
+
+NS_ASSUME_NONNULL_BEGIN
+
 /**
- *  Step's details text under title.
+ Step's details text under title.
  */
 ORK_CLASS_AVAILABLE
 @interface ORKSubheadlineLabel : ORKLabel
 
 @end
+
+NS_ASSUME_NONNULL_END

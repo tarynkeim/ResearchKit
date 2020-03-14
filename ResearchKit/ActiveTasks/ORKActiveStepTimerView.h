@@ -28,18 +28,21 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <UIKit/UIKit.h>
 
-#import <ResearchKit/ResearchKit_Private.h>
+@import UIKit;
 #import "ORKCustomStepView_Internal.h"
-#import "ORKCountdownLabel.h"
-#import "ORKTextButton.h"
+
 
 NS_ASSUME_NONNULL_BEGIN
+
+@class ORKActiveStep;
+@class ORKCountdownLabel;
+@class ORKTextButton;
 
 @interface ORKActiveStepTimerView : ORKActiveStepCustomView
 
 @property (nonatomic, strong, nullable) ORKCountdownLabel *countDownLabel;
+
 @property (nonatomic, strong, nullable) ORKTextButton *startTimerButton;
 
 @property (nonatomic, strong, nullable) ORKActiveStep *step;

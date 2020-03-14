@@ -28,15 +28,24 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKTappingIntervalStepViewController.h"
-#import "ORKTappingContentView.h"
-#import "ORKActiveStepViewController_internal.h"
-#import "ORKVerticalContainerView.h"
-#import "ORKStepViewController_Internal.h"
+
 #import "ORKActiveStepTimer.h"
-#import "ORKResult.h"
-#import "ORKHelpers.h"
+#import "ORKRoundTappingButton.h"
+#import "ORKTappingContentView.h"
+#import "ORKStepContainerView_Private.h"
+#import "ORKActiveStepViewController_Internal.h"
+#import "ORKStepViewController_Internal.h"
+
 #import "ORKActiveStepView.h"
+#import "ORKCollectionResult_Private.h"
+#import "ORKTappingIntervalResult.h"
+#import "ORKStep.h"
+#import "ORKNavigationContainerView_Internal.h"
+
+#import "ORKHelpers_Internal.h"
+
 
 @interface ORKTappingIntervalStepViewController () <UIGestureRecognizerDelegate>
 
@@ -44,8 +53,8 @@
 
 @end
 
+
 @implementation ORKTappingIntervalStepViewController {
-    
     ORKTappingContentView *_tappingContentView;
     NSTimeInterval _tappingStart;
     BOOL _expired;
@@ -59,9 +68,7 @@
     UIGestureRecognizer *_touchDownRecognizer;
 }
 
-
 - (instancetype)initWithStep:(ORKStep *)step {
-    
     self = [super initWithStep:step];
     if (self) {
         self.suspendIfInactive = YES;
@@ -69,10 +76,9 @@
     return self;
 }
 
-- (void)initializeInternalButtonItems
-{
+- (void)initializeInternalButtonItems {
     [super initializeInternalButtonItems];
-    
+
     // Don't show next button
     self.internalContinueButtonItem = nil;
     self.internalDoneButtonItem = nil;
@@ -86,21 +92,19 @@
     _touchDownRecognizer = [UIGestureRecognizer new];
     _touchDownRecognizer.delegate = self;
     [self.view addGestureRecognizer:_touchDownRecognizer];
-    
-    self.activeStepView.stepViewFillsAvailableSpace = YES;
-    
     self.timerUpdateInterval = 0.1;
     
     _expired = NO;
     
     _tappingContentView = [[ORKTappingContentView alloc] init];
     self.activeStepView.activeCustomView = _tappingContentView;
+    self.activeStepView.customContentFillsAvailableSpace = YES;
     
     [_tappingContentView.tapButton1 addTarget:self action:@selector(buttonPressed:forEvent:) forControlEvents:UIControlEventTouchDown];
     [_tappingContentView.tapButton2 addTarget:self action:@selector(buttonPressed:forEvent:) forControlEvents:UIControlEventTouchDown];
-        
+    [_tappingContentView.tapButton1 addTarget:self action:@selector(buttonReleased:forEvent:) forControlEvents:(UIControlEventTouchUpInside | UIControlEventTouchUpOutside)];
+    [_tappingContentView.tapButton2 addTarget:self action:@selector(buttonReleased:forEvent:) forControlEvents:(UIControlEventTouchUpInside | UIControlEventTouchUpOutside)];
 }
-
 
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
@@ -111,7 +115,6 @@
 }
 
 - (ORKStepResult *)result {
-    
     ORKStepResult *sResult = [super result];
     
     // "Now" is the end time of the result, which is either actually now,
@@ -120,7 +123,7 @@
     
     NSMutableArray *results = [NSMutableArray arrayWithArray:sResult.results];
     
-    ORKTappingIntervalResult *tappingResult = [[ORKTappingIntervalResult alloc] initWithIdentifier:(NSString *__nonnull)self.step.identifier];
+    ORKTappingIntervalResult *tappingResult = [[ORKTappingIntervalResult alloc] initWithIdentifier:self.step.identifier];
     tappingResult.startDate = sResult.startDate;
     tappingResult.endDate = now;
     tappingResult.buttonRect1 = _buttonRect1;
@@ -136,28 +139,26 @@
 }
 
 - (void)receiveTouch:(UITouch *)touch onButton:(ORKTappingButtonIdentifier)buttonIdentifier {
-    
     if (_expired || self.samples == nil) {
         return;
     }
     
-    NSTimeInterval ti = CACurrentMediaTime();
+    NSTimeInterval mediaTime = touch.timestamp;
     
     if (_tappingStart == 0) {
-        _tappingStart = ti;
+        _tappingStart = mediaTime;
     }
-    
     
     CGPoint location = [touch locationInView:self.view];
     
     // Add new sample
-    ti = ti-_tappingStart;
-    
+    mediaTime = mediaTime-_tappingStart;
     
     ORKTappingSample *sample = [[ORKTappingSample alloc] init];
     sample.buttonIdentifier = buttonIdentifier;
     sample.location = location;
-    sample.timestamp = ti;
+    sample.duration = 0;
+    sample.timestamp = mediaTime;
 
     [self.samples addObject:sample];
     
@@ -166,16 +167,67 @@
     }
     // Update label
     [_tappingContentView setTapCount:_hitButtonCount];
+    if (UIAccessibilityIsVoiceOverRunning()) {
+        static NSNumberFormatter *TapCountAnnouncementFormatter = nil;
+        static dispatch_once_t onceToken;
+        dispatch_once(&onceToken, ^{
+            TapCountAnnouncementFormatter = [[NSNumberFormatter alloc] init];
+        });
+        UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, [TapCountAnnouncementFormatter stringFromNumber:@(_hitButtonCount)]);
+    }
+}
+
+- (void)releaseTouch:(UITouch *)touch onButton:(ORKTappingButtonIdentifier)buttonIdentifier {
+    if (self.samples == nil) {
+        return;
+    }
+    NSTimeInterval mediaTime = touch.timestamp;
+    
+    // Take last sample for buttonIdentifier, and fill duration
+    ORKTappingSample *sample = [self lastSampleWithEmptyDurationForButton:buttonIdentifier];
+    sample.duration = mediaTime - sample.timestamp - _tappingStart;
+}
+
+- (ORKTappingSample *)lastSampleWithEmptyDurationForButton:(ORKTappingButtonIdentifier)buttonIdentifier{
+    NSEnumerator *enumerator = [self.samples reverseObjectEnumerator];
+    for (ORKTappingSample *sample in enumerator) {
+        if (sample.buttonIdentifier == buttonIdentifier && sample.duration == 0) {
+            return sample;
+        }
+    }
+    return nil;
+}
+
+- (void)fillSampleDurationIfAnyButtonPressed {
+    /*
+     * Because we will not able to get UITouch from UIButton, we will use systemUptime.
+     * Documentation for -[UITouch timestamp] tells:
+     * The value of this property is the time, in seconds, since system startup the touch either originated or was last changed.
+     * For a definition of the time-since-boot value, see the description of the systemUptime method of the NSProcessInfo class.
+     */
+    NSTimeInterval mediaTime = [[NSProcessInfo processInfo] systemUptime];
+    
+    ORKTappingSample *tapButton1LastSample = [self lastSampleWithEmptyDurationForButton:ORKTappingButtonIdentifierLeft];
+    if (tapButton1LastSample) {
+        tapButton1LastSample.duration = mediaTime - tapButton1LastSample.timestamp - _tappingStart;
+    }
+    
+    ORKTappingSample *tapButton2LastSample = [self lastSampleWithEmptyDurationForButton:ORKTappingButtonIdentifierRight];
+    if (tapButton2LastSample) {
+        tapButton2LastSample.duration = mediaTime - tapButton2LastSample.timestamp - _tappingStart;
+    }
 }
 
 - (void)stepDidFinish {
     [super stepDidFinish];
     
+    // If user didn't release touch from button, fill manually duration for last sample
+    [self fillSampleDurationIfAnyButtonPressed];
+    
     _expired = YES;
     [_tappingContentView finishStep:self];
     [self goForward];
 }
-
 
 - (void)countDownTimerFired:(ORKActiveStepTimer *)timer finished:(BOOL)finished {
     CGFloat progress = finished ? 1 : (timer.runtime / timer.duration);
@@ -185,12 +237,30 @@
 
 - (void)start {
     [super start];
+    self.skipButtonItem = nil;
     [_tappingContentView setProgress:0.001 animated:NO];
 }
 
 #pragma mark buttonAction
 
 - (IBAction)buttonPressed:(id)button forEvent:(UIEvent *)event {
+    
+    if (UIAccessibilityIsVoiceOverRunning()) {
+        if (!_tappingContentView.isAccessibilityElement) {
+            // Make the buttons directly tappable with VoiceOver
+            _tappingContentView.isAccessibilityElement = YES;
+            _tappingContentView.accessibilityLabel = ORKLocalizedString(@"AX_TAP_BUTTON_DIRECT_TOUCH_AREA", nil);
+            _tappingContentView.accessibilityTraits = UIAccessibilityTraitAllowsDirectInteraction;
+            // Ensure that VoiceOver is aware of the direct touch area so that the first tap gets registered
+            UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, _tappingContentView);
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                // Work around an issue in VoiceOver where announcements don't get spoken if they happen during a button activation
+                UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, ORKLocalizedString(@"AX_TAP_BUTTON_DIRECT_TOUCH_ANNOUNCEMENT", nil));
+            });
+            // Don't actually handle this as a tap yet.
+            return;
+        }
+    }
     
     if (self.samples == nil) {
         // Start timer on first touch event on button
@@ -200,8 +270,15 @@
     }
     
     NSInteger index = (button == _tappingContentView.tapButton1) ? ORKTappingButtonIdentifierLeft : ORKTappingButtonIdentifierRight;
+    _tappingContentView.lastTappedButton = index;
     
-    [self receiveTouch:[[event touchesForView:button] anyObject] onButton:index] ;
+    [self receiveTouch:[[event touchesForView:button] anyObject] onButton:index];
+}
+
+- (IBAction)buttonReleased:(id)button forEvent:(UIEvent *)event {
+    ORKTappingButtonIdentifier index = (button == _tappingContentView.tapButton1) ? ORKTappingButtonIdentifierLeft : ORKTappingButtonIdentifierRight;
+    
+    [self releaseTouch:[[event touchesForView:button] anyObject] onButton:index];
 }
 
 #pragma mark UIGestureRecognizerDelegate
@@ -219,4 +296,3 @@
 }
 
 @end
-

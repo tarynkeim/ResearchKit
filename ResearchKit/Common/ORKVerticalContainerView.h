@@ -29,18 +29,18 @@
  */
 
 
-#import <UIKit/UIKit.h>
-#import <ResearchKit/ResearchKit_Private.h>
-#import <ResearchKit/ORKCustomStepView_Internal.h>
-#import <ResearchKit/ORKStepHeaderView_Internal.h>
-#import <ResearchKit/ORKNavigationContainerView.h>
+@import UIKit;
+
 
 NS_ASSUME_NONNULL_BEGIN
 
+@class ORKNavigationContainerView;
+@class ORKStepHeaderView;
+@class ORKTintedImageView;
+
 @interface ORKVerticalContainerView : UIScrollView
 
-
-@property (nonatomic, strong, readonly) UIImageView *imageView;
+@property (nonatomic, strong, readonly) ORKTintedImageView *imageView;
 
 @property (nonatomic, strong, readonly) UIView *customViewContainer;
 
@@ -50,8 +50,6 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong, nullable) UIView *customView;
 
 @property (nonatomic, strong, readonly) ORKStepHeaderView *headerView;
-
-@property (nonatomic, strong, readonly) ORKNavigationContainerView *continueSkipContainer;
 
 @property (nonatomic, assign) BOOL continueHugsContent;
 

@@ -31,46 +31,46 @@
 
 #import "CMDeviceMotion+ORKJSONDictionary.h"
 
+
 @implementation CMDeviceMotion (ORKJSONDictionary)
 
-- (NSDictionary *)ork_JSONDictionary
-{
+- (NSDictionary *)ork_JSONDictionary {
     CMQuaternion attitude = self.attitude.quaternion;
     CMRotationRate rotationRate = self.rotationRate;
     CMAcceleration gravity = self.gravity;
     CMAcceleration userAccel = self.userAcceleration;
     CMCalibratedMagneticField field = self.magneticField;
     
-    NSDictionary *dict = @{@"timestamp": [NSDecimalNumber numberWithDouble:self.timestamp],
-                           @"attitude" : @{
-                                   @"x" : [NSDecimalNumber numberWithDouble:attitude.x],
-                                   @"y" : [NSDecimalNumber numberWithDouble:attitude.y],
-                                   @"z" : [NSDecimalNumber numberWithDouble:attitude.z],
-                                   @"w" : [NSDecimalNumber numberWithDouble:attitude.w]
-                                   },
-                           @"rotationRate" : @{
-                                   @"x" : [NSDecimalNumber numberWithDouble:rotationRate.x],
-                                   @"y" : [NSDecimalNumber numberWithDouble:rotationRate.y],
-                                   @"z" : [NSDecimalNumber numberWithDouble:rotationRate.z]
-                                   },
-                           @"gravity" : @{
-                                   @"x" : [NSDecimalNumber numberWithDouble:gravity.x],
-                                   @"y" : [NSDecimalNumber numberWithDouble:gravity.y],
-                                   @"z" : [NSDecimalNumber numberWithDouble:gravity.z]
-                                   },
-                           @"userAcceleration" : @{
-                                   @"x" : [NSDecimalNumber numberWithDouble:userAccel.x],
-                                   @"y" : [NSDecimalNumber numberWithDouble:userAccel.y],
-                                   @"z" : [NSDecimalNumber numberWithDouble:userAccel.z]
-                                   },
-                           @"magneticField" : @{
-                                   @"x" : [NSDecimalNumber numberWithDouble:field.field.x],
-                                   @"y" : [NSDecimalNumber numberWithDouble:field.field.y],
-                                   @"z" : [NSDecimalNumber numberWithDouble:field.field.z],
-                                   @"accuracy" : [NSDecimalNumber numberWithDouble:field.accuracy]
-                                   }
-                           };
-    return dict;
+    NSDictionary *dictionary = @{@"timestamp": [NSDecimalNumber numberWithDouble:self.timestamp],
+                                 @"attitude": @{
+                                         @"x": [NSDecimalNumber numberWithDouble:attitude.x],
+                                         @"y": [NSDecimalNumber numberWithDouble:attitude.y],
+                                         @"z": [NSDecimalNumber numberWithDouble:attitude.z],
+                                         @"w": [NSDecimalNumber numberWithDouble:attitude.w]
+                                         },
+                                 @"rotationRate": @{
+                                         @"x": [NSDecimalNumber numberWithDouble:rotationRate.x],
+                                         @"y": [NSDecimalNumber numberWithDouble:rotationRate.y],
+                                         @"z": [NSDecimalNumber numberWithDouble:rotationRate.z]
+                                         },
+                                 @"gravity": @{
+                                         @"x": [NSDecimalNumber numberWithDouble:gravity.x],
+                                         @"y": [NSDecimalNumber numberWithDouble:gravity.y],
+                                         @"z": [NSDecimalNumber numberWithDouble:gravity.z]
+                                         },
+                                 @"userAcceleration": @{
+                                         @"x": [NSDecimalNumber numberWithDouble:userAccel.x],
+                                         @"y": [NSDecimalNumber numberWithDouble:userAccel.y],
+                                         @"z": [NSDecimalNumber numberWithDouble:userAccel.z]
+                                         },
+                                 @"magneticField": @{
+                                         @"x": [NSDecimalNumber numberWithDouble:field.field.x],
+                                         @"y": [NSDecimalNumber numberWithDouble:field.field.y],
+                                         @"z": [NSDecimalNumber numberWithDouble:field.field.z],
+                                         @"accuracy": [NSDecimalNumber numberWithDouble:field.accuracy]
+                                         }
+                                 };
+    return dictionary;
 }
 
 @end

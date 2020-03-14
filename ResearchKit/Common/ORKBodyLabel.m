@@ -28,12 +28,18 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKBodyLabel.h"
+
 
 @implementation ORKBodyLabel
 
+- (void)updateAppearance {
+    self.font = [[self class] defaultFont];
+    [self invalidateIntrinsicContentSize];
+}
+
 + (UIFont *)defaultFont {
-    // Unused
     UIFontDescriptor *descriptor = [UIFontDescriptor preferredFontDescriptorWithTextStyle:UIFontTextStyleBody];
     return [UIFont systemFontOfSize:[[descriptor objectForKey: UIFontDescriptorSizeAttribute] doubleValue]];
 }

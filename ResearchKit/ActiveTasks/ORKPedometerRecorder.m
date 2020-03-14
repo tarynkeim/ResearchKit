@@ -28,14 +28,18 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import "ORKPedometerRecorder.h"
-#import "ORKDataLogger.h"
-#import "CMPedometerData+ORKJSONDictionary.h"
-#import "ORKRecorder_Internal.h"
-#import "ORKRecorder_Private.h"
 
-@interface ORKPedometerRecorder()
-{
+#import "ORKPedometerRecorder.h"
+
+#import "ORKDataLogger.h"
+
+#import "ORKRecorder_Internal.h"
+
+#import "ORKHelpers_Internal.h"
+#import "CMPedometerData+ORKJSONDictionary.h"
+
+
+@interface ORKPedometerRecorder () {
     ORKDataLogger *_logger;
     BOOL _isRecording;
 }
@@ -47,35 +51,27 @@
 
 @implementation ORKPedometerRecorder
 
-
 - (instancetype)initWithIdentifier:(NSString *)identifier
                               step:(ORKStep *)step
-                   outputDirectory:(NSURL *)outputDirectory
-{
+                   outputDirectory:(NSURL *)outputDirectory {
     self = [super initWithIdentifier:identifier
                                 step:step
                      outputDirectory:outputDirectory];
-    if (self)
-    {
+    if (self) {
         self.continuesInBackground = YES;
     }
     return self;
 }
 
-
-- (void)dealloc
-{
+- (void)dealloc {
     [_logger finishCurrentLog];
 }
 
-
-
 - (void)updateStatisticsWithData:(CMPedometerData *)pedometerData {
-    
     _lastUpdateDate = pedometerData.endDate;
-    _totalNumberOfSteps = [pedometerData.numberOfSteps integerValue];
+    _totalNumberOfSteps = pedometerData.numberOfSteps.integerValue;
     if (pedometerData.distance) {
-        _totalDistance = [pedometerData.distance doubleValue];
+        _totalDistance = pedometerData.distance.doubleValue;
     } else {
         _totalDistance = -1;
     }
@@ -91,61 +87,54 @@
 }
 
 - (void)start {
-    
     [super start];
     
     _lastUpdateDate = nil;
     _totalNumberOfSteps = 0;
     _totalDistance = -1;
     
-    if (! _logger) {
-        NSError *err = nil;
-        _logger = [self makeJSONDataLoggerWithError:&err];
-        if (! _logger) {
-            [self finishRecordingWithError:err];
+    if (!_logger) {
+        NSError *error = nil;
+        _logger = [self makeJSONDataLoggerWithError:&error];
+        if (!_logger) {
+            [self finishRecordingWithError:error];
             return;
         }
     }
     
     self.pedometer = [self createPedometer];
     
-    if (! [[self.pedometer class] isStepCountingAvailable])
-    {
+    if (![[self.pedometer class] isStepCountingAvailable]) {
         [self finishRecordingWithError:[NSError errorWithDomain:NSCocoaErrorDomain
                                                            code:NSFeatureUnsupportedError
-                                                       userInfo:@{@"recorder" : self}]];
+                                                       userInfo:@{@"recorder": self}]];
         return;
     }
 
     _isRecording = YES;
-    __weak __typeof(self) weakSelf = self;
+    ORKWeakTypeOf(self) weakSelf = self;
     [self.pedometer startPedometerUpdatesFromDate:[NSDate date] withHandler:^(CMPedometerData *pedometerData, NSError *error) {
         
         BOOL success = NO;
-        if (pedometerData)
-        {
+        if (pedometerData) {
             success = [_logger append:[pedometerData ork_JSONDictionary] error:&error];
             dispatch_async(dispatch_get_main_queue(), ^{
-                __typeof(self) strongSelf = weakSelf;
+                ORKStrongTypeOf(self) strongSelf = weakSelf;
                 [strongSelf updateStatisticsWithData:pedometerData];
             });
         }
-        if (!success || error)
-        {
+        if (!success || error) {
             dispatch_async(dispatch_get_main_queue(), ^{
-                __typeof(self) strongSelf = weakSelf;
+                ORKStrongTypeOf(self) strongSelf = weakSelf;
                 [strongSelf finishRecordingWithError:error];
             });
         }
     }];
 }
 
-
-- (NSString *)recorderType
-{
+- (NSString *)recorderType {
     return @"pedometer";
 }
-
 
 - (void)stop {
     [self doStopRecording];
@@ -155,17 +144,15 @@
     __block NSURL *fileUrl = nil;
     [_logger enumerateLogs:^(NSURL *logFileUrl, BOOL *stop) {
         fileUrl = logFileUrl;
-    } error:&error];
-    
-    
+    }
+                     error:&error];
     
     [self reportFileResultWithFile:fileUrl error:error];
     
     [super stop];
 }
 
-- (void)doStopRecording
-{
+- (void)doStopRecording {
     if (_isRecording) {
         [self.pedometer stopPedometerUpdates];
         _isRecording = NO;
@@ -173,8 +160,7 @@
     }
 }
 
-- (void)finishRecordingWithError:(NSError *)error
-{
+- (void)finishRecordingWithError:(NSError *)error {
     [self doStopRecording];
     [super finishRecordingWithError:error];
 }
@@ -187,8 +173,7 @@
     return @"application/json";
 }
 
-- (void)reset
-{
+- (void)reset {
     [super reset];
     
     _logger = nil;
@@ -197,48 +182,35 @@
 @end
 
 
-@interface ORKPedometerRecorderConfiguration()
-@end
-
-
 @implementation ORKPedometerRecorderConfiguration
 
-- (instancetype)initWithIdentifier:(NSString *)identifier
-{
+- (instancetype)initWithIdentifier:(NSString *)identifier {
     return [super initWithIdentifier:identifier];
 }
 
-- (ORKRecorder *)recorderForStep:(ORKStep *)step outputDirectory:(NSURL *)outputDirectory
-{
+- (ORKRecorder *)recorderForStep:(ORKStep *)step outputDirectory:(NSURL *)outputDirectory {
     return [[ORKPedometerRecorder alloc] initWithIdentifier:self.identifier
                                                        step:step
                                             outputDirectory:outputDirectory];
 }
 
-
-- (instancetype)initWithCoder:(NSCoder *)aDecoder
-{
+- (instancetype)initWithCoder:(NSCoder *)aDecoder {
     self = [super initWithCoder:aDecoder];
     return self;
 }
 
-+ (BOOL)supportsSecureCoding
-{
++ (BOOL)supportsSecureCoding {
     return YES;
 }
-
 
 - (BOOL)isEqual:(id)object {
     BOOL isParentSame = [super isEqual:object];
     
-    return (isParentSame) ;
+    return (isParentSame);
 }
-
-
 
 - (ORKPermissionMask)requestedPermissionMask {
     return ORKPermissionCoreMotionActivity;
 }
 
 @end
-

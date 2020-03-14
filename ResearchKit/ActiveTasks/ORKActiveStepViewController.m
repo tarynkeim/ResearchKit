@@ -30,25 +30,32 @@
 
 
 #import "ORKActiveStepViewController.h"
-#import "ORKVoiceEngine.h"
-#import "ORKSkin.h"
-#import "ORKHelpers.h"
-#import "ORKActiveStep.h"
-#import "ORKTask.h"
-#import "ORKTaskViewController.h"
-#import "ORKVerticalContainerView.h"
-#import "ORKStepViewController_Internal.h"
-#import "ORKActiveStepViewController_Internal.h"
-#import "ORKActiveStep_Internal.h"
-#import "ORKRecorder_Internal.h"
-#import "ORKTaskViewController_Internal.h"
-#import "ORKActiveStepTimerView.h"
-#import "ORKActiveStepTimer.h"
-#import "ORKAccessibility.h"
-#import "ORKStepHeaderView_Internal.h"
-#import "ORKActiveStepView.h"
 
-@interface ORKActiveStepViewController (){
+#import "ORKActiveStepTimer.h"
+#import "ORKActiveStepTimerView.h"
+#import "ORKActiveStepView.h"
+#import "ORKStepContainerView_Private.h"
+#import "ORKNavigationContainerView_Internal.h"
+#import "ORKStepHeaderView_Internal.h"
+#import "ORKVerticalContainerView.h"
+#import "ORKVoiceEngine.h"
+
+#import "ORKActiveStepViewController_Internal.h"
+#import "ORKStepViewController_Internal.h"
+#import "ORKTaskViewController_Internal.h"
+#import "ORKRecorder_Internal.h"
+
+#import "ORKActiveStep_Internal.h"
+#import "ORKCollectionResult_Private.h"
+#import "ORKResult.h"
+#import "ORKTask.h"
+
+#import "ORKAccessibility.h"
+#import "ORKHelpers_Internal.h"
+#import "ORKSkin.h"
+
+
+@interface ORKActiveStepViewController () {
     ORKActiveStepView *_activeStepView;
     ORKActiveStepTimer *_activeStepTimer;
 
@@ -56,6 +63,8 @@
     
     SystemSoundID _alertSound;
     NSURL *_alertSoundURL;
+    BOOL _hasSpokenHalfwayCountdown;
+    NSArray<NSLayoutConstraint *> *_constraints;
 }
 
 @property (nonatomic, strong) NSArray *recorders;
@@ -76,9 +85,7 @@
         _timerUpdateInterval = 1;
     }
     return self;
-    
 }
-
 
 - (void)applicationWillResignActive:(NSNotification *)notification {
     if (self.suspendIfInactive) {
@@ -93,6 +100,7 @@
 }
 
 - (ORKActiveStep *)activeStep {
+    NSAssert(self.step == nil || [self.step isKindOfClass:[ORKActiveStep class]], @"Step should be a subclass of an ORKActiveStep");
     return (ORKActiveStep *)self.step;
 }
 
@@ -100,86 +108,133 @@
     return _activeStepView;
 }
 
-- (void)viewDidLoad
-{
+- (void)viewDidLoad {
     [super viewDidLoad];
-    
-    _activeStepView = [[ORKActiveStepView alloc] initWithFrame:self.view.bounds];
-    [_activeStepView setTranslatesAutoresizingMaskIntoConstraints:NO];
-    [_activeStepView setCustomView:_customView];
+    [self setActiveStepView];
+    [self setNavigationFooterView];
     [self updateContinueButtonItem];
-    _activeStepView.headerView.learnMoreButtonItem = self.learnMoreButtonItem;
-    _activeStepView.continueSkipContainer.skipButtonItem = self.skipButtonItem;
-    _activeStepView.continueSkipContainer.continueEnabled = _finished;
+    [self setupConstraints];
+    [self prepareStep];
+}
+
+- (void)setActiveStepView {
+    if (!_activeStepView) {
+        _activeStepView = [ORKActiveStepView new];
+        [_activeStepView placeNavigationContainerInsideScrollView];
+    }
+    if (_customView) {
+        _activeStepView.customContentView = _customView;
+    }
     [self.view addSubview:_activeStepView];
-    
-    NSMutableArray *constraints = [NSMutableArray arrayWithArray:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[s]|" options:0 metrics:nil views:@{@"s":_activeStepView}]];
-    [constraints addObjectsFromArray:[NSLayoutConstraint constraintsWithVisualFormat:@"V:[tg][s]|" options:0 metrics:nil views:@{@"s":_activeStepView,@"tg":self.topLayoutGuide}]];
-    [self.view addConstraints:constraints];
-    
-    [self prepareStep];
 }
-- (void)stepDidChange
-{
-    [super stepDidChange];
-    _activeStepView.activeStep = [self activeStep];
+
+- (void)setNavigationFooterView {
+    if (!_navigationFooterView) {
+        _navigationFooterView = _activeStepView.navigationFooterView;
+    }
+    _navigationFooterView.skipButtonItem = self.skipButtonItem;
+    _navigationFooterView.continueEnabled = _finished;
+
+    ORKActiveStep *step = [self activeStep];
+    _navigationFooterView.useNextForSkip = step.shouldUseNextAsSkipButton;
+    _navigationFooterView.optional = step.optional;
+    BOOL neverHasContinueButton = (step.shouldContinueOnFinish && !step.startsFinished);
+    [_navigationFooterView setNeverHasContinueButton:neverHasContinueButton];
+    [_navigationFooterView updateContinueAndSkipEnabled];
+
     [self updateContinueButtonItem];
+}
+
+- (void)setupConstraints {
+    if (_constraints) {
+        [NSLayoutConstraint deactivateConstraints:_constraints];
+    }
+    _constraints = nil;
     
     
+    _activeStepView.translatesAutoresizingMaskIntoConstraints = NO;
+    
+    _constraints = @[
+                     [NSLayoutConstraint constraintWithItem:_activeStepView
+                                                  attribute:NSLayoutAttributeTop
+                                                  relatedBy:NSLayoutRelationEqual
+                                                     toItem:self.view
+                                                  attribute:NSLayoutAttributeTop
+                                                 multiplier:1.0
+                                                   constant:0.0],
+                     [NSLayoutConstraint constraintWithItem:_activeStepView
+                                                  attribute:NSLayoutAttributeLeft
+                                                  relatedBy:NSLayoutRelationEqual
+                                                     toItem:self.view
+                                                  attribute:NSLayoutAttributeLeft
+                                                 multiplier:1.0
+                                                   constant:0.0],
+                     [NSLayoutConstraint constraintWithItem:_activeStepView
+                                                  attribute:NSLayoutAttributeRight
+                                                  relatedBy:NSLayoutRelationEqual
+                                                     toItem:self.view
+                                                  attribute:NSLayoutAttributeRight
+                                                 multiplier:1.0
+                                                   constant:0.0],
+                     [NSLayoutConstraint constraintWithItem:_activeStepView
+                                                  attribute:NSLayoutAttributeBottom
+                                                  relatedBy:NSLayoutRelationEqual
+                                                     toItem:self.view
+                                                  attribute:NSLayoutAttributeBottom
+                                                 multiplier:1.0
+                                                   constant:0.0]
+                     
+                     ];
+    [NSLayoutConstraint activateConstraints:_constraints];
+}
+
+- (void)stepDidChange {
+    [super stepDidChange];
+    ORKActiveStep *step = [self activeStep];
+    _activeStepView.activeStep = step;
     [self prepareStep];
 }
 
-- (UIView *)customViewContainer
-{
-    __unused UIView *v = [self view];
-    return _activeStepView.customViewContainer;
-}
-
-- (UIImageView *)imageView
-{
-    __unused UIView *v = [self view];
-    return _activeStepView.imageView;
-}
-
-- (void)setCustomView:(UIView *)customView
-{
+- (void)setCustomView:(UIView *)customView {
     _customView = customView;
-    [_activeStepView setStepView:_customView];
+    if (_customView) {
+        [_activeStepView setCustomContentView:_customView];
+    }
 }
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
-    ORK_Log_Debug(@"%@",self);
-
-    [self.taskViewController setRegisteredScrollView:_activeStepView];
+    
+    if (_activeStepView.navigationFooterView) {
+        [_activeStepView.navigationFooterView flattenIfNeeded];
+    }
+    ORK_Log_Debug("%@",self);
 }
-
 
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
-    ORK_Log_Debug(@"%@",self);
+    ORK_Log_Debug("%@",self);
     
     // Wait for animation complete 
     dispatch_async(dispatch_get_main_queue(), ^{
-        
-        if ([[self activeStep] shouldStartTimerAutomatically])
-        {
+        if(self.started){
+            // Should call resume instead of start when the task has been started.
+            [self resume];
+        } else if ([[self activeStep] shouldStartTimerAutomatically]) {
             [self start];
         }
     });
-    
-    
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
-    ORK_Log_Debug(@"%@",self);
+    ORK_Log_Debug("%@",self);
     
     [self suspend];
 }
 
 - (void)updateContinueButtonItem {
-    _activeStepView.continueSkipContainer.continueButtonItem = self.continueButtonItem;
+    _navigationFooterView.continueButtonItem = self.continueButtonItem;
 }
 
 - (void)setContinueButtonItem:(UIBarButtonItem *)continueButtonItem {
@@ -187,56 +242,50 @@
     [self updateContinueButtonItem];
 }
 
-- (void)setLearnMoreButtonItem:(UIBarButtonItem *)learnMoreButtonItem
-{
+- (void)setLearnMoreButtonItem:(UIBarButtonItem *)learnMoreButtonItem {
     [super setLearnMoreButtonItem:learnMoreButtonItem];
-    _activeStepView.headerView.learnMoreButtonItem = self.learnMoreButtonItem;
 }
 
-- (void)setSkipButtonItem:(UIBarButtonItem *)skipButtonItem
-{
+- (void)setSkipButtonItem:(UIBarButtonItem *)skipButtonItem {
     [super setSkipButtonItem:skipButtonItem];
-    _activeStepView.continueSkipContainer.skipButtonItem = skipButtonItem;
+    _navigationFooterView.skipButtonItem = skipButtonItem;
 }
 
-- (void)setFinished:(BOOL)finished
-{
+- (void)setCancelButtonItem:(UIBarButtonItem *)cancelButtonItem {
+    [super setCancelButtonItem:cancelButtonItem];
+}
+
+- (void)setFinished:(BOOL)finished {
     _finished = finished;
-    
-    _activeStepView.continueSkipContainer.continueEnabled = finished;
+    _navigationFooterView.continueEnabled = finished;
 }
 
 - (ORKStepResult *)result {
     ORKStepResult *sResult = [super result];
-    sResult.results = _recorderResults;
+    if (_recorderResults) {
+        sResult.results = [sResult.results arrayByAddingObjectsFromArray:_recorderResults] ? : _recorderResults;
+    }
     return sResult;
 }
 
 #pragma mark - transition
 
 - (void)recordersDidChange {
-    
 }
 
 - (void)recordersWillStart {
-    
 }
 
 - (void)recordersWillStop {
-    
 }
 
-
-- (void)prepareRecorders
-{
+- (void)prepareRecorders {
     // Stop any existing recorders
     [self recordersWillStop];
-    for (ORKRecorder *recorder in self.recorders)
-    {
+    for (ORKRecorder *recorder in self.recorders) {
         recorder.delegate = nil;
         [recorder stop];
     }
-    
     NSMutableArray *recorders = [NSMutableArray array];
     
     for (ORKRecorderConfiguration * provider in self.activeStep.recorderConfigurations) {
@@ -249,7 +298,6 @@
         
         [recorders addObject:recorder];
     }
-
     self.recorders = recorders;
     
     [self recordersDidChange];
@@ -261,23 +309,19 @@
 }
 
 - (void)prepareStep {
-    
-    if (self.activeStep==nil) {
+    if (self.activeStep == nil) {
         return;
     }
     
     self.finished = [[self activeStep] startsFinished];
     
-    ORK_Log_Debug(@"%@", self);
+    ORK_Log_Debug("%@", self);
     _activeStepView.activeStep = self.activeStep;
     
-    if ([self.activeStep hasCountDown])
-    {
+    if ([self.activeStep hasCountDown]) {
         ORKActiveStepTimerView *timerView = [ORKActiveStepTimerView new];
         _activeStepView.activeCustomView = timerView;
-    }
-    else
-    {
+    } else {
         _activeStepView.activeCustomView = nil;
     }
     _activeStepView.activeCustomView.activeStepViewController = self;
@@ -291,7 +335,6 @@
     [self recordersWillStart];
     // Start recorders
     for (ORKRecorder *recorder in self.recorders) {
-        
         [recorder viewController:self willStartStepWithView:self.customViewContainer];
         [recorder start];
     }
@@ -304,8 +347,7 @@
     }
 }
 
-- (void)playSound
-{
+- (void)playSound {
     if (_alertSoundURL == nil) {
         _alertSoundURL = [NSURL URLWithString:@"/System/Library/Audio/UISounds/short_low_high.caf"];
         AudioServicesCreateSystemSoundID((__bridge CFURLRef)(_alertSoundURL), &_alertSound);
@@ -314,21 +356,18 @@
 }
 
 - (void)start {
-    ORK_Log_Debug(@"%@",self);
+    ORK_Log_Debug("%@",self);
     self.started = YES;
     [self startTimer];
     [_activeStepView.activeCustomView startStep:self];
     
     [self startRecorders];
     
-    
     if (self.activeStep.shouldVibrateOnStart) {
-        
         AudioServicesPlayAlertSound(kSystemSoundID_Vibrate);
     }
     
     if (self.activeStep.shouldPlaySoundOnStart) {
-        
         [self playSound];
     }
     
@@ -337,14 +376,14 @@
         // Let VO speak "Step x of y" before the instruction.
         // If VO is not running, the text is spoken immediately.
         ORKAccessibilityPerformBlockAfterDelay(1.5, ^{
-            [[ORKVoiceEngine sharedVoiceEngine] speakText:(NSString *__nonnull)self.activeStep.spokenInstruction];
+            [[ORKVoiceEngine sharedVoiceEngine] speakText:self.activeStep.spokenInstruction];
         });
     }
 }
 
 - (void)suspend {
-    ORK_Log_Debug(@"%@",self);
-    if (self.finished || ! self.started) {
+    ORK_Log_Debug("%@",self);
+    if (self.finished || !self.started) {
         return;
     }
     
@@ -355,8 +394,8 @@
 }
 
 - (void)resume {
-    ORK_Log_Debug(@"%@",self);
-    if (self.finished || ! self.started) {
+    ORK_Log_Debug("%@",self);
+    if (self.finished || !self.started) {
         return;
     }
     
@@ -366,9 +405,8 @@
     [_activeStepView.activeCustomView resumeStep:self];
 }
 
-
 - (void)finish {
-    ORK_Log_Debug(@"%@",self);
+    ORK_Log_Debug("%@",self);
     if (self.finished) {
         return;
     }
@@ -383,7 +421,10 @@
     if (self.activeStep.shouldVibrateOnFinish) {
         AudioServicesPlayAlertSound(kSystemSoundID_Vibrate);
     }
-    if (! self.activeStep.startsFinished) {
+    if (self.activeStep.hasVoice && self.activeStep.finishedSpokenInstruction) {
+        [[ORKVoiceEngine sharedVoiceEngine] speakText:self.activeStep.finishedSpokenInstruction];
+    }
+    if (!self.activeStep.startsFinished) {
         if (self.activeStep.shouldContinueOnFinish) {
             [self goForward];
         }
@@ -405,20 +446,18 @@
     _activeStepTimer = nil;
 }
 
-- (void)startTimer
-{
+- (void)startTimer {
     [self resetTimer];
     
     NSTimeInterval stepDuration = self.activeStep.stepDuration;
     
     if (stepDuration > 0) {
-        
-        __weak typeof(self) weakSelf = self;
+        ORKWeakTypeOf(self) weakSelf = self;
         _activeStepTimer = [[ORKActiveStepTimer alloc] initWithDuration:stepDuration
                                                         interval:_timerUpdateInterval
                                                          runtime:0
                                                          handler:^(ORKActiveStepTimer *timer, BOOL finished) {
-                                                             typeof(self) strongSelf = weakSelf;
+                                                             ORKStrongTypeOf(self) strongSelf = weakSelf;
                                                              [strongSelf countDownTimerFired:timer finished:finished];
                                                          }];
         [_activeStepTimer resume];
@@ -426,13 +465,13 @@
 }
 
 - (void)countDownTimerFired:(ORKActiveStepTimer *)timer finished:(BOOL)finished {
-    
     if (finished) {
         [self finish];
     }
     NSInteger countDownValue = (NSInteger)round(timer.duration - timer.runtime);
     ORKActiveStepCustomView *customView = _activeStepView.activeCustomView;
     [customView updateDisplay:self];
+    
     
     ORKVoiceEngine *voice = [ORKVoiceEngine sharedVoiceEngine];
     
@@ -447,6 +486,21 @@
             [voice speakInt:countDownValue];
         }
     }
+    
+    BOOL isHalfway = !_hasSpokenHalfwayCountdown && timer.runtime > timer.duration / 2.0;
+    if (!finished && self.activeStep.shouldSpeakRemainingTimeAtHalfway && !UIAccessibilityIsVoiceOverRunning() && isHalfway) {
+        _hasSpokenHalfwayCountdown = YES;
+        
+        NSDateComponentsFormatter *secondsFormatter = [NSDateComponentsFormatter new];
+        secondsFormatter.unitsStyle = NSDateFormatterFullStyle;
+        secondsFormatter.allowedUnits = NSCalendarUnitSecond;
+        secondsFormatter.formattingContext = NSFormattingContextDynamic;
+        secondsFormatter.maximumUnitCount = 1;
+        NSString *seconds = [secondsFormatter stringFromTimeInterval:countDownValue];
+        NSString *text = [NSString localizedStringWithFormat:ORKLocalizedString(@"COUNTDOWN_SPOKEN_REMAINING_%@", nil), seconds];
+        
+        [voice speakText:text];
+    }
 }
 
 - (BOOL)timerActive {
@@ -460,23 +514,29 @@
     return _activeStepTimer.duration - _activeStepTimer.runtime;
 }
 
+- (NSTimeInterval)runtime {
+    if (_activeStepTimer == nil) {
+        return 0;
+    }
+    return _activeStepTimer.runtime;
+}
+
+
 #pragma mark - action handlers
 
-- (void)stepDidFinish
-{
+- (void)stepDidFinish {
 }
 
 #pragma mark - ORKRecorderDelegate
 
 - (void)recorder:(ORKRecorder *)recorder didCompleteWithResult:(ORKResult *)result {
-    
     _recorderResults = [_recorderResults arrayByAddingObject:result];
     [self notifyDelegateOnResultChange];
 }
 
 - (void)recorder:(ORKRecorder *)recorder didFailWithError:(NSError *)error {
     if (error) {
-        STRONGTYPE(self.delegate) strongDelegate = self.delegate;
+        ORKStrongTypeOf(self.delegate) strongDelegate = self.delegate;
         if ([strongDelegate respondsToSelector:@selector(stepViewController:recorder:didFailWithError:)]) {
             [strongDelegate stepViewController:self recorder:recorder didFailWithError:error];
         }
@@ -492,25 +552,21 @@
     }
 }
 
+static NSString *const _ORKFinishedRestoreKey = @"finished";
+static NSString *const _ORKRecorderResultsRestoreKey = @"recorderResults";
 
-static NSString * const _ORKFinishedRestoreKey = @"finished";
-static NSString * const _ORKRecorderResultsRestoreKey = @"recorderResults";
-
-- (void)encodeRestorableStateWithCoder:(NSCoder *)coder
-{
+- (void)encodeRestorableStateWithCoder:(NSCoder *)coder {
     [super encodeRestorableStateWithCoder:coder];
     
     [coder encodeBool:_finished forKey:_ORKFinishedRestoreKey];
     [coder encodeObject:_recorderResults forKey:_ORKRecorderResultsRestoreKey];
 }
 
-- (void)decodeRestorableStateWithCoder:(NSCoder *)coder
-{
+- (void)decodeRestorableStateWithCoder:(NSCoder *)coder {
     [super decodeRestorableStateWithCoder:coder];
     
     self.finished = [coder decodeBoolForKey:_ORKFinishedRestoreKey];
     _recorderResults = [coder decodeObjectOfClass:[NSArray class] forKey:_ORKRecorderResultsRestoreKey];
 }
-
 
 @end

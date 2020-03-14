@@ -28,16 +28,46 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "UIBarButtonItem+ORKBarButtonItem.h"
-#import "ORKDefines_Private.h"
 
-@implementation UIBarButtonItem(ORKBarButtonItem)
+#import "ORKHelpers_Internal.h"
 
-+ (UIBarButtonItem *)obk_backBarButtonItemWithTarget:(id)target action:(SEL)selector {
-    UIImage *im = [UIImage imageNamed:@"arrowLeft" inBundle:ORKBundle() compatibleWithTraitCollection:nil];
-    UIImage *landscape = [UIImage imageNamed:@"arrowLeftLandscape" inBundle:ORKBundle() compatibleWithTraitCollection:nil];
-    UIBarButtonItem *item = [[UIBarButtonItem alloc] initWithImage:im
-                                               landscapeImagePhone:landscape
+
+@implementation UIBarButtonItem (ORKBarButtonItem)
+
++ (UIBarButtonItem *)ork_backBarButtonItemWithTarget:(id)target action:(SEL)selector {
+
+    // Use SFSymbols for the back button on iOS 13+
+    if (@available(iOS 13.0, *)) {
+        NSString *imageName = @"chevron.left";
+        if ([UIApplication sharedApplication].userInterfaceLayoutDirection == UIUserInterfaceLayoutDirectionRightToLeft ) {
+            imageName = @"chevron.right";
+        }
+
+        UIImage *image = [UIImage systemImageNamed:imageName];
+        UIBarButtonItem *item = [[UIBarButtonItem alloc] initWithImage:image
+                                                   landscapeImagePhone:image
+                                                                 style:UIBarButtonItemStyleDone
+                                                                target:target
+                                                                action:selector];
+        item.accessibilityLabel = ORKLocalizedString(@"AX_BUTTON_BACK", nil);
+        return item;
+    }
+
+    // Use assets catalog below iOS 13
+    NSString *regularImageName = @"arrowLeft";
+    NSString *landscapeImageName = @"arrowLeftLandscape";
+
+    if ([UIApplication sharedApplication].userInterfaceLayoutDirection == UIUserInterfaceLayoutDirectionRightToLeft ) {
+        regularImageName = @"arrowRight";
+        landscapeImageName = @"arrowRightLandscape";
+    }
+
+    UIImage *image = [UIImage imageNamed:regularImageName inBundle:ORKBundle() compatibleWithTraitCollection:nil];
+    UIImage *landscapeImage = [UIImage imageNamed:landscapeImageName inBundle:ORKBundle() compatibleWithTraitCollection:nil];
+    UIBarButtonItem *item = [[UIBarButtonItem alloc] initWithImage:image
+                                               landscapeImagePhone:landscapeImage
                                                              style:UIBarButtonItemStyleDone
                                                             target:target
                                                             action:selector];

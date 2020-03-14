@@ -28,11 +28,22 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <ResearchKit/ORKVerticalContainerView.h>
 
-@interface ORKQuestionStepView : ORKVerticalContainerView
+@import UIKit;
+#import "ORKStepContainerView_Private.h"
+
+NS_ASSUME_NONNULL_BEGIN
+
+@class ORKQuestionStep;
+@class ORKQuestionStepCustomView;
+
+@interface ORKQuestionStepView : ORKStepContainerView
 
 @property (nonatomic, strong, nullable) ORKQuestionStep *questionStep;
 @property (nonatomic, strong, nullable) ORKQuestionStepCustomView *questionCustomView;
 
+- (void)setCustomHeaderTitle:(nullable NSString *)text;
+
 @end
+
+NS_ASSUME_NONNULL_END

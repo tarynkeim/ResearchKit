@@ -29,30 +29,33 @@
  */
 
 
-
 #import "ORKSurveyAnswerCellForScale.h"
+
 #import "ORKScaleSlider.h"
-#import "ORKSkin.h"
-#import "ORKQuestionStep_Internal.h"
-#import "ORKAnswerFormat_Internal.h"
 #import "ORKScaleSliderView.h"
 
-@interface ORKSurveyAnswerCellForScale ()
+#import "ORKAnswerFormat_Internal.h"
+#import "ORKQuestionStep_Internal.h"
+
+#import "ORKSkin.h"
+
+
+@interface ORKSurveyAnswerCellForScale () <ORKScaleSliderViewDelegate>
 
 @property (nonatomic, strong) ORKScaleSliderView *sliderView;
 @property (nonatomic, strong) id<ORKScaleAnswerFormatProvider> formatProvider;
 
 @end
 
+
 @implementation ORKSurveyAnswerCellForScale
 
 - (id<ORKScaleAnswerFormatProvider>)formatProvider {
-    if(_formatProvider == nil){
+    if (_formatProvider == nil) {
         _formatProvider = (id<ORKScaleAnswerFormatProvider>)[self.step impliedAnswerFormat];
     }
     return _formatProvider;
 }
-
 
 - (void)prepareView {
     [super prepareView];
@@ -60,68 +63,50 @@
     id<ORKScaleAnswerFormatProvider> formatProvider = self.formatProvider;
     
     if (_sliderView == nil) {
-        _sliderView = [[ORKScaleSliderView alloc] initWithFormatProvider:formatProvider];
-        [_sliderView.slider addTarget:self action:@selector(sliderValueChanged:) forControlEvents:UIControlEventValueChanged];
+        _sliderView = [[ORKScaleSliderView alloc] initWithFormatProvider:formatProvider delegate:self];
         
         [self addSubview:_sliderView];
+        
+        self.sliderView.translatesAutoresizingMaskIntoConstraints = NO;
+        NSDictionary *views = @{ @"sliderView": _sliderView };
+        [self addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|[sliderView]|"
+                                                                     options:NSLayoutFormatDirectionLeadingToTrailing
+                                                                     metrics:nil
+                                                                       views:views]];
+        [self addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[sliderView]|"
+                                                                     options:NSLayoutFormatDirectionLeadingToTrailing
+                                                                     metrics:nil
+                                                                       views:views]];
+        
+        // Get a full width layout
+        NSLayoutConstraint *widthConstraint = [self.class fullWidthLayoutConstraint:_sliderView];
+        [self addConstraints:@[widthConstraint]];
     }
     
     [self answerDidChange];
-    
-    [self setNeedsUpdateConstraints];
 }
 
-- (void)answerDidChange
-{
+- (void)answerDidChange {
     id<ORKScaleAnswerFormatProvider> formatProvider = self.formatProvider;
     id answer = self.answer;
-    if (answer && answer != ORKNullAnswerValue())
-    {
-        if (! [self.answer isKindOfClass:[NSNumber class]])
-        {
-            @throw [NSException exceptionWithName:NSGenericException reason:@"Answer should be NSNumber" userInfo:nil];
-        }
-        
-        [_sliderView setCurrentValue:answer];
-    }
-    else
-    {
-        if (answer == nil && [formatProvider defaultNumber]) {
-            [self.sliderView setCurrentValue:[formatProvider defaultNumber]];
+    if (answer && answer != ORKNullAnswerValue()) {
+        [_sliderView setCurrentAnswerValue:answer];
+    } else {
+        if (answer == nil && [formatProvider defaultAnswer]) {
+            [self.sliderView setCurrentAnswerValue:[formatProvider defaultAnswer]];
+            [self ork_setAnswer:self.sliderView.currentAnswerValue];
         } else {
-           [self.sliderView setCurrentValue:nil];
+           [self.sliderView setCurrentAnswerValue:nil];
         }
     }
 }
 
-- (void)updateConstraints {
-    
-    [super updateConstraints];
-    
-    self.sliderView.translatesAutoresizingMaskIntoConstraints = NO;
-    
-    NSDictionary *views = NSDictionaryOfVariableBindings(_sliderView);
-    
-    [self addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|[_sliderView]|"
-                                                                 options:NSLayoutFormatDirectionLeadingToTrailing
-                                                                 metrics:nil views:views]];
-    
-    [self addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[_sliderView]|"
-                                                                 options:NSLayoutFormatDirectionLeadingToTrailing
-                                                                 metrics:nil views:views]];
-
+- (NSArray *)suggestedCellHeightConstraintsForView:(UIView *)view {
+    return @[];
 }
 
-
-- (IBAction)sliderValueChanged:(id)sender {
-    
-    [self ork_setAnswer:_sliderView.currentValue];
+- (void)scaleSliderViewCurrentValueDidChange:(ORKScaleSliderView *)sliderView {
+    [self ork_setAnswer:sliderView.currentAnswerValue];
 }
-
-+ (CGFloat)suggestedCellHeightForView:(UIView *)view {
-    return 140.0;
-}
-
-
 
 @end

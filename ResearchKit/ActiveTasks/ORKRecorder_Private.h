@@ -28,7 +28,10 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import <ResearchKit/ORKRecorder.h>
+#import <ResearchKit/ORKTypes.h>
+
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -41,7 +44,7 @@ NS_ASSUME_NONNULL_BEGIN
  It is currently considered private, and is not used in any of the active tasks.
  */
 ORK_CLASS_AVAILABLE
-@interface ORKTouchRecorderConfiguration: ORKRecorderConfiguration
+@interface ORKTouchRecorderConfiguration : ORKRecorderConfiguration
 
 /**
  Returns an initialized touch recorder configuration.
@@ -49,6 +52,7 @@ ORK_CLASS_AVAILABLE
  This method is the designated initializer.
  
  @param identifier   The unique identifier of the recorder configuration.
+ 
  @return An initialized touch recorder configuration.
  */
 - (instancetype)initWithIdentifier:(NSString *)identifier NS_DESIGNATED_INITIALIZER;
@@ -57,6 +61,7 @@ ORK_CLASS_AVAILABLE
  Returns a new touch recorder configuration initialized from data in the given unarchiver.
  
  @param aDecoder    Coder from which to initialize the touch recorder configuration.
+ 
  @return A new touch recorder configuration.
  */
 - (instancetype)initWithCoder:(NSCoder *)aDecoder NS_DESIGNATED_INITIALIZER;
@@ -64,7 +69,7 @@ ORK_CLASS_AVAILABLE
 @end
 
 
-@interface ORKRecorder()
+@interface ORKRecorder ()
 
 /**
  Returns an initialized recorder.
@@ -74,10 +79,10 @@ ORK_CLASS_AVAILABLE
  @param identifier          The unique identifier of the recorder.
  @param step                The step for which this recorder is being created.
  @param outputDirectory     The directory in which all output file data should be written (if producing `ORKFileResult` instances).
+ 
  @return An initialized recorder.
  */
 - (instancetype)initWithIdentifier:(NSString *)identifier step:(nullable ORKStep *)step outputDirectory:(nullable NSURL *)outputDirectory;
-
 
 /**
  A preparation step to provide viewController and view before record starting.
@@ -112,7 +117,7 @@ ORK_CLASS_AVAILABLE
 @end
 
 
-@interface ORKRecorderConfiguration()
+@interface ORKRecorderConfiguration ()
 
 /**
  Returns an initialized recorder configuration.
@@ -120,6 +125,7 @@ ORK_CLASS_AVAILABLE
  This method is the designated initializer.
  
  @param identifier   The unique identifier of the recorder configuration.
+ 
  @return An initialized recorder configuration.
  */
 - (instancetype)initWithIdentifier:(NSString *)identifier NS_DESIGNATED_INITIALIZER;
@@ -128,6 +134,7 @@ ORK_CLASS_AVAILABLE
  Returns a new recorder configuration initialized from data in the given unarchiver.
  
  @param aDecoder    Coder from which to initialize the recorder configuration.
+ 
  @return A new recorder configuration.
  */
 - (instancetype)initWithCoder:(NSCoder *)aDecoder NS_DESIGNATED_INITIALIZER;

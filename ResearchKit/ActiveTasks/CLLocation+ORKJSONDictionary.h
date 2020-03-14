@@ -28,8 +28,9 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <CoreLocation/CoreLocation.h>
-#import <ResearchKit/ResearchKit.h>
+
+@import CoreLocation;
+
 
 NS_ASSUME_NONNULL_BEGIN
 

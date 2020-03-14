@@ -28,7 +28,13 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <ResearchKit/ResearchKit_Private.h>
+
+@import Foundation;
+#import <ResearchKit/ORKDefines.h>
+#import <ResearchKit/ORKActiveStepViewController.h>
+
+
+NS_ASSUME_NONNULL_BEGIN
 
 /**
  The `ORKCountdownStepViewController` class represents the step view controller that corresponds to an `ORKCountdownStep`.
@@ -41,3 +47,5 @@ ORK_CLASS_AVAILABLE
 @interface ORKCountdownStepViewController : ORKActiveStepViewController
 
 @end
+
+NS_ASSUME_NONNULL_END

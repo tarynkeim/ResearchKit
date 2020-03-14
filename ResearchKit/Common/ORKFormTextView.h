@@ -28,13 +28,18 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKAnswerTextView.h"
 
+
+NS_ASSUME_NONNULL_BEGIN
+
 /**
- *  Text view for use in forms
+ Text view for use in forms
  */
 ORK_CLASS_AVAILABLE
 @interface ORKFormTextView : ORKAnswerTextView
 
 @end
 
+NS_ASSUME_NONNULL_END

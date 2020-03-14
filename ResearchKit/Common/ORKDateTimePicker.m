@@ -28,9 +28,13 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKDateTimePicker.h"
+
 #import "ORKAnswerFormat_Internal.h"
-#import "ORKHelpers.h"
+
+#import "ORKHelpers_Internal.h"
+
 
 @interface ORKDateTimePicker ()
 
@@ -39,10 +43,12 @@
 
 @end
 
+
 @implementation ORKDateTimePicker {
     NSDateFormatter *_labelFormatter;
     UIDatePicker *_pickerView;
     NSDate *_date;
+    NSInteger _minuteInterval;
     __weak id<ORKPickerDelegate> _pickerDelegate;
     id _answer;
 }
@@ -50,8 +56,7 @@
 @synthesize pickerDelegate = _pickerDelegate;
 @synthesize answer = _answer;
 
-- (instancetype) initWithAnswerFormat:(ORKAnswerFormat *)answerFormat answer:(id)answer pickerDelegate:(id<ORKPickerDelegate>)delegate {
-    
+- (instancetype)initWithAnswerFormat:(ORKAnswerFormat *)answerFormat answer:(id)answer pickerDelegate:(id<ORKPickerDelegate>)delegate {
     self = [super init];
     if (self) {
         
@@ -63,13 +68,12 @@
         
     }
     return self;
-    
 }
 
 - (UIDatePicker *)pickerView {
     if (_pickerView == nil) {
         _pickerView = [[UIDatePicker alloc] init];
-        [_pickerView addTarget:self action:@selector(valueChanged:) forControlEvents:UIControlEventValueChanged];
+        [_pickerView addTarget:self action:@selector(valueDidChange:) forControlEvents:UIControlEventValueChanged];
         self.answerFormat = _answerFormat;
         self.answer = _answer;
     }
@@ -77,50 +81,43 @@
 }
 
 - (void)setAnswer:(id)answer {
-    
     _answer = answer;
     
-    if ([self isTimeOfDay])
-    {
+    if (answer == [ORKDontKnowAnswer answer]) {
+        return;
+    }
+    
+    if ([self isTimeOfDay]) {
         ORKTimeOfDayAnswerFormat *timeOfDayAnswerFormat = (ORKTimeOfDayAnswerFormat *)self.answerFormat;
+        [self setMinuteInterval:timeOfDayAnswerFormat.minuteInterval];
         
-        if (answer && answer != ORKNullAnswerValue())
-        {
+        if (answer && answer != ORKNullAnswerValue()) {
             NSDateComponents *timeOfDayComponents = (NSDateComponents *)answer;
             
             NSDate *dateValue = ORKTimeOfDayDateFromComponents(timeOfDayComponents);
             [self setDate:dateValue];
             
-        }
-        else
-        {
+        } else {
             [self setDate:[timeOfDayAnswerFormat pickerDefaultDate]];
         }
-    }
-    else
-    {
+    } else {
         ORKDateAnswerFormat *dateAnswerFormat = (ORKDateAnswerFormat *)self.answerFormat;
+        [self setMinuteInterval:dateAnswerFormat.minuteInterval];
         
-        if (answer && answer != ORKNullAnswerValue())
-        {
+        if (answer && answer != ORKNullAnswerValue()) {
             NSDate *defaultDate = (NSDate *)answer;
             [self setDate:defaultDate];
-        }
-        else
-        {
+        } else {
             NSDate *defaultDate = [dateAnswerFormat pickerDefaultDate];
             [self setDate:defaultDate];
         }
     }
-    
 }
 
 - (void)setAnswerFormat:(ORKAnswerFormat *)answerFormat {
-    
     ORKQuestionType questionType = answerFormat.questionType;
     int datePickerMode = -1;
-    switch (questionType)
-    {
+    switch (questionType) {
         case ORKQuestionTypeDate:
             datePickerMode = UIDatePickerModeDate;
             break;
@@ -140,21 +137,20 @@
     
     _pickerView.datePickerMode = datePickerMode;
     
-    if ([self isTimeOfDay])
-    {
+    if ([self isTimeOfDay]) {
         [self setDate:[(ORKTimeOfDayAnswerFormat *)answerFormat pickerDefaultDate]];
-    }
-    else
-    {
+    } else {
         ORKDateAnswerFormat *dateAnswerFormat = (ORKDateAnswerFormat *)answerFormat;
         [self setDate:[dateAnswerFormat pickerDefaultDate]];
+        
         _pickerView.calendar = [dateAnswerFormat currentCalendar];
+        _pickerView.timeZone = _pickerView.calendar.timeZone;
+        
         _calendar = [dateAnswerFormat currentCalendar];
         
         [_pickerView setMinimumDate:[dateAnswerFormat pickerMinimumDate]];
         [_pickerView setMaximumDate:[dateAnswerFormat pickerMaximumDate]];
     }
-    
     
     _labelFormatter = nil;
 }
@@ -164,16 +160,19 @@
     _pickerView.date = date;
 }
 
-- (NSDateFormatter *)labelFormatter
-{
+- (void)setMinuteInterval:(NSInteger)minuteInterval {
+    _minuteInterval = minuteInterval;
+    _pickerView.minuteInterval = minuteInterval;
+}
+
+- (NSDateFormatter *)labelFormatter {
     if (_labelFormatter) {
         _labelFormatter.calendar = self.calendar;
         return _labelFormatter;
     }
     
     NSString *dateFormat = nil;
-    switch ([self questionType])
-    {
+    switch ([self questionType]) {
         case ORKQuestionTypeDate:
             dateFormat = [NSDateFormatter dateFormatFromTemplate:@"Mdy" options:0 locale:[NSLocale currentLocale]];
             break;
@@ -187,8 +186,7 @@
             break;
     }
     
-    if (dateFormat != nil)
-    {
+    if (dateFormat != nil) {
         NSDateFormatter *dfm = [NSDateFormatter new];
         dfm.dateFormat = dateFormat;
         dfm.calendar = self.calendar;
@@ -200,8 +198,7 @@
 }
 
 - (NSString *)selectedLabelText {
-    
-    if (_answer == nil || _answer == ORKNullAnswerValue()){
+    if (_answer == nil || _answer == ORKNullAnswerValue()) {
         return nil;
     }
     
@@ -211,22 +208,22 @@
 - (void)pickerWillAppear {
     // Report current value, since ORKTimeIntervalPicker always has a value
     [self pickerView];
-    [self valueChanged:self];
+    [self valueDidChange:self];
 }
 
-- (void)valueChanged:(id)sender {
-    
+- (void)valueDidChange:(id)sender {
     _date = _pickerView.date;
     
-    if ([self isTimeOfDay]) {
+    if (self.answer != [ORKDontKnowAnswer answer]) {
         
-        NSDateComponents *answer = ORKTimeOfDayComponentsFromDate([_pickerView date]);
-        _answer = answer;
+        if ([self isTimeOfDay]) {
+            NSDateComponents *answer = ORKTimeOfDayComponentsFromDate([_pickerView date]);
+            _answer = answer;
+        } else {
+            NSDate *dateAnswer = _date;
+            _answer = dateAnswer;
+        }
         
-    } else {
-        
-        NSDate *dateAnswer = _date;
-        _answer = dateAnswer;
     }
     
     if ([self.pickerDelegate respondsToSelector:@selector(picker:answerDidChangeTo:)]) {
@@ -242,16 +239,13 @@
     return [self questionType] == ORKQuestionTypeTimeOfDay;
 }
 
-- (void)currentLocaleDidChange:(NSNotification *)notification
-{
+- (void)currentLocaleDidChange:(NSNotification *)notification {
     _labelFormatter = nil;
-    [self valueChanged:nil];
+    [self valueDidChange:nil];
 }
 
-- (void)dealloc
-{
+- (void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
-
 
 @end

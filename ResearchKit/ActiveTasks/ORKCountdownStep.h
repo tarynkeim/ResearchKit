@@ -28,8 +28,13 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <ResearchKit/ResearchKit.h>
+
+@import Foundation;
+#import <ResearchKit/ORKDefines.h>
 #import <ResearchKit/ORKActiveStep.h>
+
+
+NS_ASSUME_NONNULL_BEGIN
 
 /**
  The `ORKCountdownStep` class represents a step that displays a label and a
@@ -44,3 +49,5 @@ ORK_CLASS_AVAILABLE
 @interface ORKCountdownStep : ORKActiveStep
 
 @end
+
+NS_ASSUME_NONNULL_END

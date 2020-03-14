@@ -30,15 +30,22 @@
 
 
 #import "ORKConsentLearnMoreViewController.h"
+
 #import "ORKConsentDocument_Internal.h"
-#import "ORKHelpers.h"
 
-@interface ORKConsentLearnMoreViewController ()<UIWebViewDelegate>
+#import "ORKHelpers_Internal.h"
+#import "ORKSkin.h"
+#import <WebKit/WebKit.h>
 
-@property (nonatomic, strong) UIWebView *webView;
+
+@interface ORKConsentLearnMoreViewController () <WKNavigationDelegate>
+
+@property (nonatomic, strong) WKWebView *webView;
 @property (nonatomic, copy) NSString *content;
+@property (nonatomic, copy) NSURL *contentURL;
 
 @end
+
 
 @implementation ORKConsentLearnMoreViewController
 
@@ -50,30 +57,78 @@
     return self;
 }
 
+- (instancetype)initWithContentURL:(NSURL *)contentURL {
+    self = [super init];
+    if (self) {
+        self.contentURL = contentURL;
+    }
+    return self;
+}
+
+
 - (void)viewDidLoad {
     [super viewDidLoad];
     
-    _webView = [[UIWebView alloc] initWithFrame:self.view.bounds];
-    _webView.autoresizingMask = UIViewAutoresizingFlexibleHeight|UIViewAutoresizingFlexibleWidth;
-    [_webView loadHTMLString:self.content baseURL:ORKCreateRandomBaseURL()];
-    _webView.delegate = self;
+    self.view.backgroundColor = ORKColor(ORKBackgroundColorKey);
+  
+    WKWebViewConfiguration *webViewConfiguration = [WKWebViewConfiguration new];
+    _webView = [[WKWebView alloc] initWithFrame:self.view.bounds configuration:webViewConfiguration];
+    
+    const CGFloat horizMargin = ORKStandardLeftMarginForTableViewCell(self.view);
+    _webView.backgroundColor = ORKColor(ORKBackgroundColorKey);
+    _webView.scrollView.backgroundColor = ORKColor(ORKBackgroundColorKey);
+    
+    _webView.clipsToBounds = NO;
+    _webView.scrollView.clipsToBounds = NO;
+    _webView.scrollView.scrollIndicatorInsets = (UIEdgeInsets){.left = -horizMargin, .right = -horizMargin};
+    _webView.opaque = NO; // If opaque is set to YES, _webView shows a black right margin during transition when modally presented. This is an artifact due to disabling clipsToBounds to be able to show the scroll indicator outside the view.
+    
+    
+    _webView.navigationDelegate = self;
+    
+    if (_contentURL) {
+        [_webView loadRequest:[NSURLRequest requestWithURL:_contentURL]];
+    } else {
+        [_webView loadHTMLString:self.content baseURL:ORKCreateRandomBaseURL()];
+    }
+    
     [self.view addSubview:_webView];
     
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCancel target:self action:@selector(cancel:)];
+    _webView.translatesAutoresizingMaskIntoConstraints = NO;
+    [self setUpConstraints];
+    
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(done:)];
 }
 
-- (IBAction)cancel:(id)sender {
+- (void)setUpConstraints {
+    NSMutableArray *constraints = [NSMutableArray new];
+    
+    NSDictionary *views = NSDictionaryOfVariableBindings(_webView);
+    const CGFloat horizMargin = ORKStandardLeftMarginForTableViewCell(self.view);
+    [constraints addObjectsFromArray:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|-horizMargin-[_webView]-horizMargin-|"
+                                                                             options:(NSLayoutFormatOptions)0
+                                                                             metrics:@{ @"horizMargin": @(horizMargin) }
+                                                                               views:views]];
+    [constraints addObjectsFromArray:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|[_webView]|"
+                                                                             options:(NSLayoutFormatOptions)0
+                                                                             metrics:nil
+                                                                               views:views]];
+    
+    [NSLayoutConstraint activateConstraints:constraints];
+}
+
+- (IBAction)done:(id)sender {
     [self.presentingViewController dismissViewControllerAnimated:YES completion:nil];
 }
 
-
-- (BOOL)webView:(UIWebView *)webView shouldStartLoadWithRequest:(NSURLRequest *)request navigationType:(UIWebViewNavigationType)navigationType {
-    if (navigationType != UIWebViewNavigationTypeOther) {
-        [[UIApplication sharedApplication] openURL:request.URL];
-        return NO;
+- (void)webView:(WKWebView *) __unused webView decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
+    if (navigationAction.navigationType != WKNavigationTypeOther) {
+        [[UIApplication sharedApplication] openURL:navigationAction.request.URL options:@{} completionHandler:^(BOOL __unused success) {
+            decisionHandler(WKNavigationActionPolicyCancel);
+        }];
+    } else {
+        decisionHandler(WKNavigationActionPolicyAllow);
     }
-    return YES;
 }
-
 
 @end

@@ -29,66 +29,108 @@
  */
 
 
-
 #import "ORKSurveyAnswerCellForNumber.h"
-#import "ORKSkin.h"
-#import "ORKAnswerFormat_Internal.h"
-#import "ORKHelpers.h"
-#import "ORKQuestionStep_Internal.h"
+
 #import "ORKTextFieldView.h"
+#import "ORKDontKnowButton.h"
+
+#import "ORKAnswerFormat_Internal.h"
+#import "ORKQuestionStep_Internal.h"
+
+#import "ORKHelpers_Internal.h"
+#import "ORKSkin.h"
+
+static const CGFloat ErrorLabelTopPadding = 4.0;
+static const CGFloat DefaultPadding = 8.0;
+static const CGFloat HorizontalPadding = 16.0;
+static const CGFloat MinTextFieldViewHeight = 40.0;
+static const CGFloat ErrorLabelBottomPadding = 10.0;
+static const CGFloat DontKnowButtonTopBottomPadding = 16.0;
 
 
 @interface ORKSurveyAnswerCellForNumber ()
 
-@property (nonatomic, strong) UIView *containerView;
 @property (nonatomic, strong) ORKTextFieldView *textFieldView;
+@property (nonatomic, strong) UILabel *errorLabel;
 
 @end
 
-@implementation ORKSurveyAnswerCellForNumber
-{
+
+@implementation ORKSurveyAnswerCellForNumber {
     NSNumberFormatter *_numberFormatter;
+    NSNumber *_defaultNumericAnswer;
+    NSMutableArray *constraints;
+    ORKDontKnowButton *_dontKnowButton;
+    UIView *_dividerView;
+    BOOL _dontKnowButtonActive;
 }
 
 - (ORKUnitTextField *)textField {
     return _textFieldView.textField;
 }
 
-- (void)numberCell_initialize
-{
+- (void)numberCell_initialize {
     ORKQuestionType questionType = self.step.questionType;
-    _numberFormatter = [(ORKNumericAnswerFormat *)[[self.step answerFormat] impliedAnswerFormat] makeNumberFormatter];
+    _numberFormatter = ORKDecimalNumberFormatter();
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(localeDidChange:) name:NSCurrentLocaleDidChangeNotification object:nil];
+   
+    _dontKnowButtonActive = NO;
     
+    ORKNumericAnswerFormat *numericAnswerFormat = (ORKNumericAnswerFormat *)self.step.answerFormat;
+
     _textFieldView = [[ORKTextFieldView alloc] init];
-    ORKUnitTextField *textField =  _textFieldView.textField;
+    _textFieldView.hideUnitWhenAnswerEmpty = numericAnswerFormat.hideUnitWhenAnswerIsEmpty;
+    ORKUnitTextField *textField = _textFieldView.textField;
     
     textField.delegate = self;
     textField.allowsSelection = YES;
     
-    
-    if (questionType == ORKQuestionTypeDecimal)
-    {
+    if (questionType == ORKQuestionTypeDecimal) {
         textField.keyboardType = UIKeyboardTypeDecimalPad;
-    }
-    else if (questionType == ORKQuestionTypeInteger)
-    {
+    } else if (questionType == ORKQuestionTypeInteger) {
         textField.keyboardType = UIKeyboardTypeNumberPad;
     }
     
     [textField addTarget:self action:@selector(valueFieldDidChange:) forControlEvents:UIControlEventEditingChanged];
+    [self addSubview:_textFieldView];
     
-    _containerView = [[UIView alloc] init];
-    _containerView.backgroundColor = textField.backgroundColor;
-    [_containerView addSubview: _textFieldView];
-
-    [self addSubview:_containerView];
+    _errorLabel = [UILabel new];
+    [_errorLabel setTextColor: [UIColor redColor]];
+    [self.errorLabel setFont:[UIFont preferredFontForTextStyle:UIFontTextStyleFootnote]];
+    _errorLabel.numberOfLines = 0;
+    _errorLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    [self addSubview:_errorLabel];
     
-    ORKEnableAutoLayoutForViews(@[_containerView, _textFieldView]);
+    if (numericAnswerFormat.shouldShowDontKnowButton) {
+        if (!_dontKnowButton) {
+            _dontKnowButton = [ORKDontKnowButton new];
+            _dontKnowButton.customDontKnowButtonText = numericAnswerFormat.customDontKnowButtonText;
+            _dontKnowButton.translatesAutoresizingMaskIntoConstraints = NO;
+            [_dontKnowButton addTarget:self action:@selector(dontKnowButtonWasPressed) forControlEvents:UIControlEventTouchUpInside];
+        }
         
-    [self setNeedsUpdateConstraints];
+        if (!_dividerView) {
+            _dividerView = [UIView new];
+            _dividerView.translatesAutoresizingMaskIntoConstraints = NO;
+            if (@available(iOS 13.0, *)) {
+                [_dividerView setBackgroundColor:[UIColor separatorColor]];
+            } else {
+                [_dividerView setBackgroundColor:[UIColor lightGrayColor]];
+            }
+        }
+        
+        [self addSubview:_dontKnowButton];
+        [self addSubview:_dividerView];
+        
+        if (self.answer == [ORKDontKnowAnswer answer]) {
+            [_dontKnowButton setButtonActive];
+        }
+    }
+   
+    self.layoutMargins = ORKStandardLayoutMarginsForTableViewCell(self);
+    ORKEnableAutoLayoutForViews(@[_textFieldView]);
+    [self setUpConstraints];
 }
-
 
 - (void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
@@ -100,35 +142,56 @@
     [self answerDidChange];
 }
 
-- (void)setNeedsUpdateConstraints
-{
-    [NSLayoutConstraint deactivateConstraints:[self constraints]];
-    [NSLayoutConstraint deactivateConstraints:[_containerView constraints]];
-    [super setNeedsUpdateConstraints];
-}
-
-
 - (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
-    self.layoutMargins = (UIEdgeInsets){.left=ORKStandardMarginForView(self),.right=ORKStandardMarginForView(self),.bottom=8,.top=8};
-    [self setNeedsUpdateConstraints];
+    self.layoutMargins = ORKStandardLayoutMarginsForTableViewCell(self);
 }
 
-- (void)updateConstraints
-{
-    NSDictionary *views = NSDictionaryOfVariableBindings(_containerView, _textFieldView);
-    self.layoutMargins = (UIEdgeInsets){.left=ORKStandardMarginForView(self),.right=ORKStandardMarginForView(self),.bottom=8,.top=8};
-    
-    [self addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|-[_containerView]-|"
-                                                                 options:0 metrics:nil views:views]];
-    [self addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|-[_containerView(>=0)]-|"
-                                                                 options:0 metrics:nil views:views]];
-    
-    [self.containerView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|[_textFieldView]|" options:0 metrics:nil views:views]];
-    [self.containerView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[_textFieldView]|" options:0 metrics:nil views:views]];
+- (void)dontKnowButtonWasPressed {
+    if (![_dontKnowButton isDontKnowButtonActive]) {
+        [_dontKnowButton setButtonActive];
+        [_textFieldView.textField setText:nil];
+        [_textFieldView endEditing:YES];
+        [self textFieldShouldClear:_textFieldView.textField];
+    }
+}
 
+- (NSArray *)suggestedCellHeightConstraintsForView:(UIView *)view {
+    return @[
+        [NSLayoutConstraint constraintWithItem:self
+                                     attribute:NSLayoutAttributeBottom
+                                     relatedBy:NSLayoutRelationEqual
+                                        toItem:_dontKnowButton ?: _errorLabel
+                                     attribute:NSLayoutAttributeBottom
+                                    multiplier:1.0
+                                      constant:_dontKnowButton ? (DontKnowButtonTopBottomPadding - self.layoutMargins.bottom): (ErrorLabelBottomPadding - self.layoutMargins.bottom)]
+    ];
+}
+
+- (void)setUpConstraints {
+    _textFieldView.translatesAutoresizingMaskIntoConstraints = NO;
+    _errorLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    _dividerView.translatesAutoresizingMaskIntoConstraints = NO;
+    _dontKnowButton.translatesAutoresizingMaskIntoConstraints = NO;
     
-    [super updateConstraints];
+    [[_textFieldView.topAnchor constraintEqualToAnchor:self.topAnchor constant:DefaultPadding] setActive:YES];
+    [[_textFieldView.leftAnchor constraintEqualToAnchor:self.leftAnchor constant:HorizontalPadding] setActive:YES];
+    [[_textFieldView.rightAnchor constraintEqualToAnchor:self.rightAnchor constant:-HorizontalPadding] setActive:YES];
+    [[_textFieldView.heightAnchor constraintGreaterThanOrEqualToConstant:MinTextFieldViewHeight] setActive:YES];
     
+    [[_errorLabel.topAnchor constraintEqualToAnchor:_textFieldView.bottomAnchor constant:ErrorLabelTopPadding] setActive:YES];
+    [[_errorLabel.leftAnchor constraintEqualToAnchor:_textFieldView.leftAnchor] setActive:YES];
+    [[_errorLabel.rightAnchor constraintEqualToAnchor:self.rightAnchor] setActive:YES];
+    
+    if (_dontKnowButton) {
+        CGFloat separatorHeight = 1.0 / [UIScreen mainScreen].scale;
+        [[_dividerView.topAnchor constraintEqualToAnchor:_errorLabel.bottomAnchor constant:ErrorLabelBottomPadding] setActive:YES];
+        [[_dividerView.leftAnchor constraintEqualToAnchor:self.leftAnchor] setActive:YES];
+        [[_dividerView.rightAnchor constraintEqualToAnchor:self.rightAnchor] setActive:YES];
+        [[_dividerView.heightAnchor constraintGreaterThanOrEqualToConstant:separatorHeight] setActive:YES];
+
+        [[_dontKnowButton.topAnchor constraintEqualToAnchor:_dividerView.bottomAnchor constant:DontKnowButtonTopBottomPadding] setActive:YES];
+        [[_dontKnowButton.centerXAnchor constraintEqualToAnchor:self.centerXAnchor] setActive:YES];
+    }
 }
 
 - (BOOL)becomeFirstResponder {
@@ -136,7 +199,6 @@
 }
 
 - (void)prepareView {
-    
     if (self.textField == nil ) {
         [self numberCell_initialize];
     }
@@ -149,7 +211,7 @@
 - (BOOL)isAnswerValid {
     id answer = self.answer;
     
-    if (answer == ORKNullAnswerValue()) {
+    if (answer == ORKNullAnswerValue() || answer == [ORKDontKnowAnswer answer]) {
         return YES;
     }
     
@@ -161,56 +223,116 @@
 - (BOOL)shouldContinue {
     BOOL isValid = [self isAnswerValid];
 
-    if (! isValid) {
-        [self showValidityAlertWithMessage:[[self.step impliedAnswerFormat] localizedInvalidValueStringWithAnswerString:self.textField.text]];
+    if (!isValid) {
+        [self updateErrorLabelWithMessage:ORKLocalizedString(@"RANGE_ALERT_TITLE", nil)];
     }
     
     return isValid;
 }
 
-
-- (void)answerDidChange
-{
-    id answer = self.answer;
-    ORKAnswerFormat *answerFormat = [self.step impliedAnswerFormat];
-    ORKNumericAnswerFormat *numericFormat = (ORKNumericAnswerFormat *)answerFormat;
-    NSString *displayValue = (answer && answer != ORKNullAnswerValue()) ? answer : nil;
-    if ([answer isKindOfClass:[NSNumber class]])
-    {
-        displayValue = [_numberFormatter stringFromNumber:answer];
+- (void)assignDefaultAnswer {
+    if (_defaultNumericAnswer) {
+        [self ork_setAnswer:_defaultNumericAnswer];
+        if (self.textField) {
+            self.textField.text = [_numberFormatter stringFromNumber:_defaultNumericAnswer];
+        }
     }
-   
-    NSString *placeholder = self.step.placeholder? : ORKLocalizedString(@"PLACEHOLDER_TEXT_OR_NUMBER", nil);
-
-    self.textField.manageUnitAndPlaceholder = YES;
-    self.textField.unit = numericFormat.unit;
-    self.textField.placeholder = placeholder;
-    self.textField.text = displayValue;
 }
 
+- (void)answerDidChange {
+    id answer = self.answer;
+    ORKAnswerFormat *answerFormat = [self.step impliedAnswerFormat];
+    ORKNumericAnswerFormat *numericAnswerFormat = ORKDynamicCast(answerFormat, ORKNumericAnswerFormat);
+
+    _defaultNumericAnswer = numericAnswerFormat.defaultNumericAnswer;
+    NSString *placeholder = numericAnswerFormat.placeholder ? :
+    (self.step.placeholder ? : ORKLocalizedString(@"PLACEHOLDER_TEXT_OR_NUMBER", nil));
+
+    self.textField.manageUnitAndPlaceholder = YES;
+    self.textField.unit = numericAnswerFormat.unit;
+    self.textField.placeholder = placeholder;
+
+    if (answer == [ORKDontKnowAnswer answer]) {
+        [self dontKnowButtonWasPressed];
+    } else if (answer != ORKNullAnswerValue() && ![_dontKnowButton isDontKnowButtonActive]) {
+        if (!answer) {
+            [self assignDefaultAnswer];
+        }
+        else {
+            NSString *displayValue = answer;
+            if ([answer isKindOfClass:[NSNumber class]]) {
+                displayValue = [_numberFormatter stringFromNumber:answer];
+            }
+            self.textField.text = displayValue;
+        }
+    }
+}
+
+- (void)updateErrorLabelWithMessage:(NSString *)message {
+    NSString *separatorString = @":";
+    NSString *stringtoParse = message ? : ORKLocalizedString(@"RANGE_ALERT_TITLE", @"");
+    NSString *parsedString = [stringtoParse componentsSeparatedByString:separatorString].firstObject;
+    
+    if (@available(iOS 13.0, *)) {
+        
+        NSString *errorMessage = [NSString stringWithFormat:@" %@", parsedString];
+        NSMutableAttributedString *fullString = [[NSMutableAttributedString alloc] initWithString:errorMessage];
+        NSTextAttachment *imageAttachment = [NSTextAttachment new];
+        
+        UIImageSymbolConfiguration *imageConfig = [UIImageSymbolConfiguration configurationWithPointSize:12 weight:UIImageSymbolWeightRegular scale:UIImageSymbolScaleMedium];
+        UIImage *exclamationMarkImage = [UIImage systemImageNamed:@"exclamationmark.circle"];
+        UIImage *configuredImage = [exclamationMarkImage imageByApplyingSymbolConfiguration:imageConfig];
+        
+        imageAttachment.image = [configuredImage imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+        
+        NSAttributedString *imageString = [NSAttributedString attributedStringWithAttachment:imageAttachment];
+        
+        [fullString insertAttributedString:imageString atIndex:0];
+        
+        self.errorLabel.attributedText = fullString;
+    } else {
+        NSMutableAttributedString *fullString = [[NSMutableAttributedString alloc] initWithString:parsedString];
+        self.errorLabel.attributedText = fullString;
+    }
+    
+    [self setUpConstraints];
+}
 
 #pragma mark - UITextFieldDelegate
 
 - (void)valueFieldDidChange:(UITextField *)textField {
-    
     ORKNumericAnswerFormat *answerFormat = (ORKNumericAnswerFormat *)[self.step impliedAnswerFormat];
     NSString *sanitizedText = [answerFormat sanitizedTextFieldText:[textField text] decimalSeparator:[_numberFormatter decimalSeparator]];
     textField.text = sanitizedText;
     [self setAnswerWithText:textField.text];
+    
+    BOOL isValid = [self isAnswerValid];
+        
+    if (isValid && _errorLabel.attributedText != nil) {
+        _errorLabel.attributedText = nil;
+        [self setUpConstraints];
+    }
+    
+    if (_dontKnowButton && [_dontKnowButton isDontKnowButtonActive]) {
+        [_dontKnowButton setButtonInactive];
+   }
 }
 
 - (BOOL)textFieldShouldClear:(UITextField *)textField {
-    
-    [self ork_setAnswer:ORKNullAnswerValue()];
+    if ([_dontKnowButton isDontKnowButtonActive]) {
+        [self ork_setAnswer:[ORKDontKnowAnswer answer]];
+    } else {
+        [self ork_setAnswer:ORKNullAnswerValue()];
+    }
     return YES;
 }
 
 - (void)setAnswerWithText:(NSString *)text {
     BOOL updateInput = NO;
     id answer = ORKNullAnswerValue();
-    if ([text length]) {
+    if (text.length) {
         answer = [[NSDecimalNumber alloc] initWithString:text locale:[NSLocale currentLocale]];
-        if (! answer) {
+        if (!answer) {
             answer = ORKNullAnswerValue();
             updateInput = YES;
         }
@@ -222,28 +344,24 @@
     }
 }
 
-- (BOOL)textFieldShouldEndEditing:(UITextField *)textField
-{
+- (BOOL)textFieldShouldEndEditing:(UITextField *)textField {
     BOOL isValid = [self isAnswerValid];
-    if (! isValid) {
-        [self showValidityAlertWithMessage:[[self.step impliedAnswerFormat] localizedInvalidValueStringWithAnswerString:textField.text]];
+    if (!isValid) {
+        
     }
     
     return YES;
 }
 
-
 + (BOOL)shouldDisplayWithSeparators {
-    return YES;
+    return NO;
 }
 
 - (BOOL)textFieldShouldReturn:(UITextField *)textField {
-    
     BOOL isValid = [self isAnswerValid];
     
-    if (! isValid)
-    {
-        [self showValidityAlertWithMessage:[[self.step impliedAnswerFormat] localizedInvalidValueStringWithAnswerString:textField.text]];
+    if (!isValid) {
+       [self updateErrorLabelWithMessage:ORKLocalizedString(@"RANGE_ALERT_TITLE", nil)];
         return NO;
     }
     
@@ -256,5 +374,9 @@
     [self setAnswerWithText:text];
 }
 
-
+- (void)textFieldDidBeginEditing:(UITextField *)textField {
+    if (_dontKnowButton && [_dontKnowButton isDontKnowButtonActive]) {
+        [_dontKnowButton setButtonInactive];
+    }
+}
 @end

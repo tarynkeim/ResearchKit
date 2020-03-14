@@ -28,7 +28,13 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <ResearchKit/ResearchKit_Private.h>
+
+@import UIKit;
+#import <ResearchKit/ORKDefines.h>
+#import <ResearchKit/ORKActiveStepViewController.h>
+
+
+NS_ASSUME_NONNULL_BEGIN
 
 /**
  View controller corresponding to the `ORKWalkingTaskStep`.
@@ -40,3 +46,5 @@ ORK_CLASS_AVAILABLE
 @interface ORKWalkingTaskStepViewController : ORKActiveStepViewController
 
 @end
+
+NS_ASSUME_NONNULL_END

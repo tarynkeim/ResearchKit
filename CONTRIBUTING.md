@@ -6,7 +6,7 @@ codebase. However, other types of contributions are welcome too, in
 keeping with the ResearchKit™ framework [best practices](../../wiki/best-practices). For example,
 contributions of original free-to-use survey content, back-end integrations,
 validation data, and analysis or processing tools are all welcome. Ask
-on [researchkit-dev](https://lists.apple.com/mailman/listinfo/researchkit-dev) or [contact us](https://developer.apple.com/contact/researchkit/) for guidance.
+on the [*ResearchKit* Forum](https://forums.developer.apple.com/community/researchkit) or [contact us](https://developer.apple.com/contact/researchkit/) for guidance.
 
 
 Contributing software
@@ -42,7 +42,7 @@ consider one of the areas where we'd like to extend ResearchKit:
 * More consent sections
 * Back end integrations
 
-If in doubt, bring your idea up on [researchkit-dev](https://lists.apple.com/mailman/listinfo/researchkit-dev).
+If in doubt, bring your idea up on the [*ResearchKit* Forum](https://forums.developer.apple.com/community/researchkit).
 
 
 Creating a personal fork<a name="fork"></a>
@@ -57,7 +57,7 @@ Develop your changes in your fork<a name="develop"></a>
 
 Develop your changes using your normal development process. If you
 already have code from an existing project, you may need to adjust its
-style to more closely match that in the ResearchKit framework.
+style to more closely match the [ResearchKit framework coding style](./docs-standalone/coding-style-guide.md).
 
 New components may need to expose new Public or Private
 headers. Public headers are for APIs that are likely to be a stable
@@ -75,13 +75,19 @@ tests, add UI to at least one test application so that the new
 features can be reviewed and tested. Consider also whether to add new
 code to other existing demo apps to exercise your feature.
 
+When adding UI driven components, make sure that they are accessible. 
+Follow the steps outlined in the [Best Practices](../../wiki/best-practices) 
+section under Accessibility. Before submitting the pull request, you should 
+audit your components with Voice Over (or other relevant assistive technologies) 
+enabled.
+
 Keep changes that fix different issues separate. For bug fixes,
 separate bugs should be submitted as separate pull requests. A good
 way to do this is to create a new branch in your fork for each new
 bug work on.
 
 Any new user-visible strings should be included in the English
-`Localizable.strings` table so that they can be picked up and
+`ResearchKit.strings` table so that they can be picked up and
 localized in the next release cycle.
 
 
@@ -160,21 +166,22 @@ The `master` branch is used for work in progress. On `master`:
   project:
 
   1.  If you are submitting a patch to the existing codebase, you
-  represent that you have the right to license the patch to the
-  community, and agree by submitting the patch that your changes are
+  represent that you have the right to license the patch, including 
+  all code and content, to Apple and the community, and agree by 
+  submitting the patch that your changes are
   licensed under the existing license terms of the file you are
   modifying (i.e., [ResearchKit BSD license](LICENSE)).
-  Please also add your copyright (name and year) to the relevant
-  files for changes that are more than 10 lines of code.
-  2.  If you are submitting a new file for inclusion in the ResearchKit framework (no
-  code copied from another source), please include your copyright (name
-  and year) and a copy of the ResearchKit BSD license.  By submitting
-  your new file you represent that you have the right to license your
-  file to the community, and agree that your file is licensed under the
-  ResearchKit BSD license.
-  3.  If you aren't the author of the patch, you agree to include the
-  original copyright notices and licensing terms with it, to the extent
-  that they exist.  If there wasn't a copyright notice or license,
-  please make a note of it.  Generally we can only take in patches that
-  are BSD-licensed in order to maintain license compatibility within the
-  project.
+  You confirm that you have added your copyright (name and year) to 
+  the relevant files for changes that are more than 10 lines of code.
+  2.  If you are submitting a new file for inclusion in the ResearchKit 
+  framework (no code or other content is copied from another source), you 
+  have included your copyright (name and year) and a copy of the ResearchKit 
+  BSD license. By submitting your new file you represent that you have the 
+  right to license your file to Apple and the community, and agree that your 
+  file submission is licensed under the ResearchKit BSD license.
+  3.  If you aren't the author of the patch, you agree that you have 
+  the right to submit the patch, and have included the original copyright 
+  notices and licensing terms with it, to the extent that they exist. 
+  If there wasn't a copyright notice or license, please make a note of it 
+  in your response. Generally we can only take in patches that are 
+  BSD-licensed in order to maintain license compatibility within the project.

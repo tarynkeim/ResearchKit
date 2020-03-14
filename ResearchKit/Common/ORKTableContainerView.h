@@ -28,21 +28,43 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <UIKit/UIKit.h>
-#import <ResearchKit/ResearchKit.h>
+
+@import UIKit;
+#import "ORKStepView_Private.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-@class ORKStepHeaderView;
+@class ORKTableContainerView;
+@class ORKStepContentView;
+
+@protocol ORKTableContainerViewDelegate <NSObject>
+
+@required
+- (UITableViewCell *)currentFirstResponderCellForTableContainerView:(ORKTableContainerView *)tableContainerView;
+
+@end
+
 @class ORKNavigationContainerView;
 
-@interface ORKTableContainerView : UIView
+@interface ORKTableContainerView : ORKStepView
+
+@property (nonatomic, weak, nullable) id<ORKTableContainerViewDelegate> tableContainerDelegate;
 
 @property (nonatomic, strong, readonly) UITableView *tableView;
-@property (nonatomic, strong, readonly) ORKStepHeaderView *stepHeaderView;
-@property (nonatomic, strong, readonly) ORKNavigationContainerView *continueSkipContainerView;
+
+/*
+ If tap off events should be accepted from outside this view's bounds, provide
+ the parent view where the tap off gesture recognizer should be attached.
+ */
+@property (nonatomic, weak, nullable) UIView *tapOffView;
 
 - (void)scrollCellVisible:(UITableViewCell *)cell animated:(BOOL)animated;
+    
+- (instancetype)initWithStyle:(UITableViewStyle)style pinNavigationContainer:(BOOL)pinNavigationContainer;
+
+- (void)sizeHeaderToFit;
+
+- (void)resizeFooterToFit;
 
 @end
 

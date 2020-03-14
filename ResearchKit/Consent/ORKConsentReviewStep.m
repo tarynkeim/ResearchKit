@@ -28,67 +28,65 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKConsentReviewStep.h"
-#import "ORKStep_Private.h"
-#import "ORKHelpers.h"
-#import "ORKConsentDocument_Internal.h"
-#import "ORKConsentSection_Internal.h"
-#import "ORKConsentSignature.h"
+
 #import "ORKConsentReviewStepViewController.h"
+
+#import "ORKConsentDocument_Internal.h"
+#import "ORKConsentSection_Private.h"
 #import "ORKConsentSignature.h"
+#import "ORKStep_Private.h"
+
+#import "ORKHelpers_Internal.h"
 
 
 @implementation ORKConsentReviewStep
 
-
-+ (Class)stepViewControllerClass
-{
++ (Class)stepViewControllerClass {
     return [ORKConsentReviewStepViewController class];
 }
 
-
-- (instancetype)initWithIdentifier:(NSString *)identifier signature:(ORKConsentSignature *)signature inDocument:(ORKConsentDocument *)consentDocument
-{
+- (instancetype)initWithIdentifier:(NSString *)identifier signature:(ORKConsentSignature *)signature inDocument:(ORKConsentDocument *)consentDocument {
     self = [super initWithIdentifier:identifier];
-    if (self)
-    {
+    if (self) {
         _consentDocument = consentDocument;
         _signature = signature;
+        _requiresScrollToBottom = NO;
+        self.showsProgress = NO;
     }
     return self;
 }
 
-- (instancetype)copyWithZone:(NSZone *)zone
-{
+- (instancetype)copyWithZone:(NSZone *)zone {
     ORKConsentReviewStep *step = [super copyWithZone:zone];
     step->_consentDocument = self.consentDocument;
     step->_signature = self.signature;
     step->_reasonForConsent = self.reasonForConsent;
+    step->_requiresScrollToBottom = self.requiresScrollToBottom;
     return step;
 }
 
-- (instancetype)initWithCoder:(NSCoder *)aDecoder
-{
+- (instancetype)initWithCoder:(NSCoder *)aDecoder {
     self = [super initWithCoder:aDecoder];
-    if (self)
-    {
+    if (self) {
         ORK_DECODE_OBJ_CLASS(aDecoder, consentDocument, ORKConsentDocument);
         ORK_DECODE_OBJ_CLASS(aDecoder, signature, ORKConsentSignature);
         ORK_DECODE_OBJ_CLASS(aDecoder, reasonForConsent, NSString);
+        ORK_DECODE_BOOL(aDecoder, requiresScrollToBottom);
     }
     return self;
 }
 
-- (void)encodeWithCoder:(NSCoder *)aCoder
-{
+- (void)encodeWithCoder:(NSCoder *)aCoder {
     [super encodeWithCoder:aCoder];
     ORK_ENCODE_OBJ(aCoder, consentDocument);
     ORK_ENCODE_OBJ(aCoder, signature);
     ORK_ENCODE_OBJ(aCoder, reasonForConsent);
+    ORK_ENCODE_BOOL(aCoder, requiresScrollToBottom);
 }
 
-+ (BOOL)supportsSecureCoding
-{
++ (BOOL)supportsSecureCoding {
     return YES;
 }
 
@@ -99,21 +97,12 @@
     return (isParentSame &&
             ORKEqualObjects(self.consentDocument, castObject.consentDocument) &&
             ORKEqualObjects(self.signature, castObject.signature) &&
-            ORKEqualObjects(self.reasonForConsent, castObject.reasonForConsent)) ;
+            ORKEqualObjects(self.reasonForConsent, castObject.reasonForConsent)) &&
+            (self.requiresScrollToBottom == castObject.requiresScrollToBottom);
 }
 
 - (NSUInteger)hash {
-    return [super hash] ^ [self.consentDocument hash] ^ [self.signature hash] ^ [self.reasonForConsent hash];
+    return super.hash ^ self.consentDocument.hash ^ self.signature.hash ^ self.reasonForConsent.hash ^ (_requiresScrollToBottom ? 0xf : 0x0);
 }
-
-
-
-- (BOOL)showsProgress
-{
-    return NO;
-}
-
-
-
 
 @end

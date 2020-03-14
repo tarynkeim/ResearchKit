@@ -28,7 +28,10 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
+@import UIKit;
 #import "ORKSurveyAnswerCell.h"
+
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -36,8 +39,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
+
 @interface ORKSurveyAnswerCellForTextField : ORKSurveyAnswerCell <UITextFieldDelegate>
 
 @end
 
 NS_ASSUME_NONNULL_END
+

@@ -29,11 +29,20 @@
  */
 
 
+@import Foundation;
 #import <ResearchKit/ORKStep.h>
+#import <ResearchKit/ORKDefines.h>
+
+typedef NS_ENUM(NSInteger, ORKCardViewStyle) {
+    ORKCardViewStyleDefault,
+    ORKCardViewStyleBordered
+} ORK_ENUM_AVAILABLE;
 
 NS_ASSUME_NONNULL_BEGIN
 
 @class ORKAnswerFormat;
+@class ORKFormItem;
+@class ORKLearnMoreItem;
 
 /**
  The `ORKFormStep` class is a concrete subclass of `ORKStep`, used for presenting multiple questions
@@ -44,8 +53,15 @@ NS_ASSUME_NONNULL_BEGIN
  When the task completes, the user's answers are encoded in the result hierarchy
  in the task view controller.
  
- Each question in the form is represented by an `ORKFormItem` object. The form
- can be broken into sections by using an `ORKFormItem` object that includes only a section title.
+ Each question in the form is represented by an `ORKFormItem` object. The form items have an
+ `optional` property that defaults to `YES`. All required questions need to be answered for the
+ Continue button to be enabled. If all the form items are optional, at least one question needs to
+ be answered for the Continue button to be enabled. You can allow the user to completely skip a
+ form step using the Skip button, even if it has required form items, by setting the form step
+ `optional` property to yes.
+ 
+ The form can be broken into sections by using an `ORKFormItem` object that includes only a section
+ title.
  
  The result of a form step is an `ORKStepResult` object that includes a child `ORKQuestionResult`
  object for each form item.
@@ -73,9 +89,22 @@ ORK_CLASS_AVAILABLE
  A form step that contains no items is considered invalid and an exception will be thrown
  when it is presented.
  */
-@property (nonatomic, copy, nullable) NSArray *formItems;
+@property (nonatomic, copy, nullable) NSArray<ORKFormItem *> *formItems;
+
+/**
+ The property to present the form with all the items in a card view. Default to YES;
+ */
+@property (nonatomic) BOOL useCardView;
+
+/**
+   Footer text to display beneath the last formItem.
+*/
+@property (nonatomic, copy, nullable) NSString *footerText;
+
+@property (nonatomic) ORKCardViewStyle cardViewStyle;
 
 @end
+
 
 /**
  The `ORKFormItem` class represents a single item in a form step (`ORKFormStep`), and typically
@@ -108,6 +137,43 @@ ORK_CLASS_AVAILABLE
                       answerFormat:(nullable ORKAnswerFormat *)answerFormat;
 
 /**
+ Returns an initialized form item using the specified identifier, title, optionality and answer format.
+ 
+ @param identifier    The string that identifies the form item, which should be unique within the form step.
+ @param text          The text displayed as a prompt for the form item's question.
+ @param answerFormat  The answer format for the form item.
+ @param optional      A Boolean that determines whether the item is optional
+ 
+ @return An initialized form item.
+ */
+- (instancetype)initWithIdentifier:(NSString *)identifier
+                              text:(nullable NSString *)text
+                      answerFormat:(nullable ORKAnswerFormat *)answerFormat
+                          optional:(BOOL) optional;
+
+/**
+ Returns an initialized form item using the specified identifier, title, optionality and answer format.
+ 
+ @param identifier    The string that identifies the form item, which should be unique within the form step.
+ @param text    The text displayed as a prompt for the form item's question.
+ @param detailText     The detail text displayed below the form items title
+ @param learnMoreItem    The `ORKLearnMoreItem` to be presented when button is pressed.
+ @param showsProgress    A Boolean that determines if the formItem will display a progress indicator
+ @param answerFormat  The answer format for the form item.
+ @param optional      A Boolean that determines whether the item is optional
+ 
+ @return An initialized form item.
+ */
+- (instancetype)initWithIdentifier:(NSString *)identifier
+                              text:(nullable NSString *)text
+                        detailText:(nullable NSString *)detailText
+                     learnMoreItem:(nullable ORKLearnMoreItem *)learnMoreItem
+                     showsProgress:(BOOL)showsProgress
+                      answerFormat:(nullable ORKAnswerFormat *)answerFormat
+                           tagText:(nullable NSString *)tagText
+                          optional:(BOOL) optional;
+
+/**
  Returns an initialized form item using the specified section title.
  
  @param sectionTitle   The title of the section.
@@ -116,6 +182,21 @@ ORK_CLASS_AVAILABLE
  */
 - (instancetype)initWithSectionTitle:(nullable NSString *)sectionTitle;
 
+/**
+ Returns an initialized form item using the specified section title.
+ 
+@param sectionTitle   The title of the section.
+@param text     The detail text displayed below the form items title
+@param learnMoreItem    The `ORKLearnMoreItem` to be presented when button is pressed.
+@param showsProgress    A Boolean that determines if the formItem will display a progress indicator
+ 
+@return An initialized form item for use as a section header in a form.
+*/
+
+- (instancetype)initWithSectionTitle:(nullable NSString *)sectionTitle
+                          detailText:(nullable NSString *)text
+                       learnMoreItem:(nullable ORKLearnMoreItem *)learnMoreItem
+                       showsProgress:(BOOL)showsProgress;
 /**
  A string that identifies the form item.
  
@@ -126,20 +207,34 @@ ORK_CLASS_AVAILABLE
 @property (nonatomic, copy, readonly) NSString *identifier;
 
 /**
+ A Boolean value indicating whether the form item is optional.
+ 
+ The default value of this property is `YES`. When the value is `YES`, this form item doesn't need
+ to be answered for the Continue button of a step form to be enabled.
+ */
+@property (nonatomic, getter=isOptional) BOOL optional;
+
+/**
  A localized string that describes the form item.
  
  If the descriptive text is sufficiently short, you can display it as a prompt next to the item.
  If it is too long to display next to the item, you can display it above the item.
- 
  */
 @property (nonatomic, copy, readonly, nullable) NSString *text;
+
+@property (nonatomic, copy, nullable) NSString *detailText;
+
+@property (nonatomic) BOOL showsProgress;
+
+@property (nonatomic, copy, nullable) ORKLearnMoreItem *learnMoreItem;
+
+@property (nonatomic, copy, nullable) NSString *tagText;
 
 /**
  A localized string that displays placeholder information for the form item.
  
  You can display placeholder text in a text field or text area to help users understand how to answer the
  item's question. A placeholder string is not appropriate for choice-based answer formats.
- 
  */
 @property (nonatomic, copy, nullable) NSString *placeholder;
 
@@ -153,6 +248,30 @@ ORK_CLASS_AVAILABLE
  header is always `nil`, because no answer is expected.
  */
 @property (nonatomic, copy, readonly, nullable) ORKAnswerFormat *answerFormat;
+
+/**
+ Returns an form item that can be used for confirming a text entry.
+ 
+ This form item is intended to be used with an `ORKFormStep` in order to confirm a previous
+ formItem input. Example usage includes a password or participant identifier that is used to
+ anonymously identify a study participant.
+ 
+ Currently, only `ORKTextAnswerFormat` is supported. Unsupported `ORKAnswerFormat` types will
+ throw an exception.
+ 
+ The answer format for this item produces an `ORKBooleanQuestionResult` object.
+ 
+ @param identifier      The identifier for the `ORKFormItem` that is returned.
+ @param text            The text for the `ORKFormItem` that is returned.
+ @param errorMessage    The error message to display if the fields do not match
+ 
+ @return                An `ORKFormItem` with the indicated identifier and text and an ORKAnswerFormat 
+                        that is appropriate for confirming the input form item.
+ 
+ */
+- (ORKFormItem *)confirmationAnswerFormItemWithIdentifier:(NSString *)identifier
+                                                     text:(nullable NSString *)text
+                                             errorMessage:(NSString *)errorMessage;
 
 @end
 

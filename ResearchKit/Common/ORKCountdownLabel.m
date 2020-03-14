@@ -28,39 +28,48 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKCountdownLabel.h"
-#import "ORKHelpers.h"
 
-@interface ORKCountdownLabel ()
-
-
-@property (nonatomic, copy) NSString *mmString;
-@property (nonatomic, copy) NSString *ssString;
-
-@end
+#import "ORKHelpers_Internal.h"
 
 
-@implementation ORKCountdownLabel
+@implementation ORKCountdownLabel {
+    NSInteger _currentCountDownValue;
+}
+
++ (UIFont *)defaultFont {
+    return [UIFont systemFontOfSize:65.f weight:UIFontWeightUltraLight];
+}
+
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        _currentCountDownValue = 0;
+    }
+    return self;
+}
 
 - (void)updateAppearance {
-    [self setCountDownValue:0];
+    [self setCountDownValue:_currentCountDownValue];
 }
 
 - (void)setCountDownValue:(NSInteger)value {
-    
-    _mmString = [NSString stringWithFormat:@"%02ld", (long)(value/60)];
-    _ssString= [NSString stringWithFormat:@"%02ld", (long)(value%60)];
-    
+    _currentCountDownValue = value;
     [self renderText];
 }
 
 - (void)renderText {
-    if (_mmString.length==0 || _ssString.length==0) {
-        return;
-    }
-    
-    [self setText:[NSString stringWithFormat:@"%@:%@", _mmString, _ssString]];
-    
+    static dispatch_once_t onceToken;
+    static NSDateComponentsFormatter *durationFormatter = nil;
+    dispatch_once(&onceToken, ^{
+        durationFormatter = [NSDateComponentsFormatter new];
+        [durationFormatter setUnitsStyle:NSDateComponentsFormatterUnitsStylePositional];
+        durationFormatter.allowedUnits = NSCalendarUnitMinute|NSCalendarUnitSecond;
+        durationFormatter.zeroFormattingBehavior = NSDateComponentsFormatterZeroFormattingBehaviorPad;
+    });
+   
+    [self setText:[durationFormatter stringFromTimeInterval:_currentCountDownValue]];
     [self invalidateIntrinsicContentSize];
 }
 
@@ -69,10 +78,9 @@
     [self renderText];
 }
 
-- (CGSize)intrinsicContentSize
-{
+- (CGSize)intrinsicContentSize {
     CGSize intrinsic = [super intrinsicContentSize];
-    return (CGSize){.width=intrinsic.width,ORKExpectedLabelHeight(self)};
+    return (CGSize){.width=intrinsic.width, self.frame.size.height == 0.0 ? ORKExpectedLabelHeight(self) : self.frame.size.height};
 }
 
 @end

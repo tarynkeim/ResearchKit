@@ -28,24 +28,27 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKActiveStepTimer.h"
+
+#import "ORKHelpers_Internal.h"
+
+@import UIKit;
 #include <mach/mach.h>
 #include <mach/mach_time.h>
-#import <UIKit/UIKit.h>
+
 
 static NSTimeInterval timeIntervalFromMachTime(uint64_t delta) {
-    
     static mach_timebase_info_data_t    sTimebaseInfo;
     if ( sTimebaseInfo.denom == 0 ) {
         (void) mach_timebase_info(&sTimebaseInfo);
     }
     uint64_t elapsedNano = delta * sTimebaseInfo.numer / sTimebaseInfo.denom;
-    
     return elapsedNano * 1.0 / NSEC_PER_SEC;
 }
 
-@implementation ORKActiveStepTimer
-{
+
+@implementation ORKActiveStepTimer {
     uint64_t _startTime;
     NSTimeInterval _preExistingRuntime;
     dispatch_queue_t _queue;
@@ -54,11 +57,10 @@ static NSTimeInterval timeIntervalFromMachTime(uint64_t delta) {
     uint32_t _isRunning;
 }
 
-
 - (instancetype)initWithDuration:(NSTimeInterval)duration interval:(NSTimeInterval)interval runtime:(NSTimeInterval)runtime handler:(ORKActiveStepTimerHandler)handler {
     self = [super init];
     if (self) {
-        if (! handler) {
+        if (!handler) {
             @throw [NSException exceptionWithName:NSInvalidArgumentException reason:@"Handler is required" userInfo:nil];
         }
         
@@ -158,10 +160,10 @@ static NSTimeInterval timeIntervalFromMachTime(uint64_t delta) {
     if (_backgroundTaskIdentifier == UIBackgroundTaskInvalid) {
         return;
     }
-    UIBackgroundTaskIdentifier ident = _backgroundTaskIdentifier;
+    UIBackgroundTaskIdentifier identifier = _backgroundTaskIdentifier;
     _backgroundTaskIdentifier = UIBackgroundTaskInvalid;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        [[UIApplication sharedApplication] endBackgroundTask:ident];
+        [[UIApplication sharedApplication] endBackgroundTask:identifier];
     });
 }
 
@@ -178,7 +180,6 @@ static NSTimeInterval timeIntervalFromMachTime(uint64_t delta) {
 }
 
 - (void)queue_resume {
-    
     if (_timer != NULL) {
         // Already resumed
         return;
@@ -200,9 +201,9 @@ static NSTimeInterval timeIntervalFromMachTime(uint64_t delta) {
         assert(0);
         return;
     }
-    __weak typeof(self) weakSelf = self;
+    ORKWeakTypeOf(self) weakSelf = self;
     dispatch_source_set_event_handler(_timer, ^{
-        typeof(self) strongSelf = weakSelf;
+        ORKStrongTypeOf(self) strongSelf = weakSelf;
         [strongSelf hiqueue_event];
     });
     
@@ -227,7 +228,7 @@ static NSTimeInterval timeIntervalFromMachTime(uint64_t delta) {
     _preExistingRuntime += timeIntervalFromMachTime(now - _startTime);
     _startTime = 0;
     
-    if (! atFinish) {
+    if (!atFinish) {
         // If we are atFinish, the task will be released after the handler completes
         [self queue_releaseBackgroundTask];
     }
@@ -238,6 +239,5 @@ static NSTimeInterval timeIntervalFromMachTime(uint64_t delta) {
     _preExistingRuntime = 0;
     [self queue_releaseBackgroundTask];
 }
-
 
 @end

@@ -28,8 +28,11 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKTapCountLabel.h"
-#import "ORKHelpers.h"
+
+#import "ORKHelpers_Internal.h"
+
 
 @implementation ORKTapCountLabel
 

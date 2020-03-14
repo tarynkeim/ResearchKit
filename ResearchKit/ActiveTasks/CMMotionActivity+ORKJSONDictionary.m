@@ -30,62 +30,55 @@
 
 
 #import "CMMotionActivity+ORKJSONDictionary.h"
-#import "ORKHelpers.h"
 
-static NSString * const kActivityUnknown = @"unknown";
-static NSString * const kActivityStationary = @"stationary";
-static NSString * const kActivityWalking = @"walking";
-static NSString * const kActivityRunning = @"running";
-static NSString * const kActivityAutomotive = @"automotive";
-static NSString * const kStartDateKey = @"startDate";
-static NSString * const kEndDateKey = @"endDate";
+#import "ORKHelpers_Internal.h"
 
-static NSString *stringFromActivityConfidence(CMMotionActivityConfidence confidence)
-{
-    NSDictionary *confidences = @{@(CMMotionActivityConfidenceHigh) : @"high",
-                                  @(CMMotionActivityConfidenceMedium) : @"medium",
-                                  @(CMMotionActivityConfidenceLow) : @"low"};
+
+static NSString *const ActivityUnknown = @"unknown";
+static NSString *const ActivityStationary = @"stationary";
+static NSString *const ActivityWalking = @"walking";
+static NSString *const ActivityRunning = @"running";
+static NSString *const ActivityAutomotive = @"automotive";
+static NSString *const StartDateKey = @"startDate";
+static NSString *const EndDateKey = @"endDate";
+
+static NSString *stringFromActivityConfidence(CMMotionActivityConfidence confidence) {
+    NSDictionary *confidences = @{@(CMMotionActivityConfidenceHigh): @"high",
+                                  @(CMMotionActivityConfidenceMedium): @"medium",
+                                  @(CMMotionActivityConfidenceLow): @"low"};
     return confidences[@(confidence)];
 }
 
-static NSArray *activityArray(CMMotionActivity *activity)
-{
-    NSMutableArray *ret = [NSMutableArray array];
-    if (activity.unknown)
-    {
-        [ret addObject:kActivityUnknown];
+static NSArray *activityArray(CMMotionActivity *activity) {
+    NSMutableArray *array = [NSMutableArray array];
+    if (activity.unknown) {
+        [array addObject:ActivityUnknown];
     }
-    if (activity.stationary)
-    {
-        [ret addObject:kActivityStationary];
+    if (activity.stationary) {
+        [array addObject:ActivityStationary];
     }
-    if (activity.walking)
-    {
-        [ret addObject:kActivityWalking];
+    if (activity.walking) {
+        [array addObject:ActivityWalking];
     }
-    if (activity.running)
-    {
-        [ret addObject:kActivityRunning];
+    if (activity.running) {
+        [array addObject:ActivityRunning];
     }
-    if (activity.automotive)
-    {
-        [ret addObject:kActivityAutomotive];
+    if (activity.automotive) {
+        [array addObject:ActivityAutomotive];
     }
-    return ret;
+    return array;
 }
 
-    
-static NSString * const kActivityKey = @"activity";
+static NSString *const ActivityKey = @"activity";
+static NSString *const ConfidenceKey = @"confidence";
 
-static NSString * const kConfidenceKey = @"confidence";
 
 @implementation CMMotionActivity (ORKJSONDictionary)
 
-- (NSDictionary *)ork_JSONDictionary
-{
-    return @{kConfidenceKey : stringFromActivityConfidence(self.confidence),
-             kActivityKey : activityArray(self),
-             kStartDateKey : ORKStringFromDateISO8601(self.startDate)};
+- (NSDictionary *)ork_JSONDictionary {
+    return @{ConfidenceKey: stringFromActivityConfidence(self.confidence),
+             ActivityKey: activityArray(self),
+             StartDateKey: ORKStringFromDateISO8601(self.startDate)};
 }
 
 @end

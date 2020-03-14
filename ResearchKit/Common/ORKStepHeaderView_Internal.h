@@ -28,15 +28,18 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKStepHeaderView.h"
 #import "ORKHeadlineLabel.h"
 #import "ORKSubheadlineLabel.h"
-#import "ORKTextButton.h"
+#import <ResearchKit/ORKTextButton.h>
+
 
 NS_ASSUME_NONNULL_BEGIN
 
 @interface ORKStepHeaderView ()
 
+@property (nonatomic, strong, readonly) UIImageView *iconImageView;
 @property (nonatomic, strong, readonly) ORKHeadlineLabel *captionLabel;
 @property (nonatomic, strong, readonly) ORKTextButton *learnMoreButton;
 @property (nonatomic, strong, readonly) ORKSubheadlineLabel *instructionLabel;

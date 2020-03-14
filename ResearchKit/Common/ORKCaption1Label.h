@@ -28,14 +28,21 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
+@import UIKit;
 #import "ORKLabel.h"
 
+
+NS_ASSUME_NONNULL_BEGIN
+
 /**
- *  Intro step's first piece details text.
- *  @note Used as cell's caption text: in ORKConsentDocumentCell and ORKFormItemCell
+ Intro step's first piece details text.
+ 
+ @note Used as cell's caption text: in ORKConsentDocumentCell and ORKFormItemCell
  */
 ORK_CLASS_AVAILABLE
 @interface ORKCaption1Label : ORKLabel
 
 @end
 
+NS_ASSUME_NONNULL_END

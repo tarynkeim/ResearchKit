@@ -29,13 +29,14 @@
  */
 
 
-#import <ResearchKit/ResearchKit.h>
+@import Foundation;
+#import <ResearchKit/ORKStep.h>
+
 
 NS_ASSUME_NONNULL_BEGIN
 
 @class ORKConsentDocument;
 @class ORKConsentSignature;
-
 
 /**
  The `ORKConsentReviewStep` class is used to represent the consent review process.
@@ -69,6 +70,7 @@ ORK_CLASS_AVAILABLE
  @param identifier      The identifier for the step.
  @param signature       The signature to be collected, if any.
  @param consentDocument The consent document to be reviewed.
+ 
  @return An initialized consent review step.
  */
 - (instancetype)initWithIdentifier:(NSString *)identifier
@@ -93,6 +95,11 @@ ORK_CLASS_AVAILABLE
  the consent document.
  */
 @property (nonatomic, strong, readonly, nullable) ORKConsentSignature *signature;
+
+/**
+ When set to YES, the consent document must be scrolled to the bottom to enable the `Agree` button.
+ */
+@property (nonatomic) BOOL requiresScrollToBottom;
 
 /**
  A user-visible description of the reason for agreeing to consent in a localized string.

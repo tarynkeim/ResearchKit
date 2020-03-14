@@ -1,6 +1,7 @@
 /*
  Copyright (c) 2015, Apple Inc. All rights reserved.
- 
+ Copyright (c) 2015, Ricardo Sánchez-Sáez.
+
  Redistribution and use in source and binary forms, with or without modification,
  are permitted provided that the following conditions are met:
  
@@ -30,19 +31,23 @@
 
 
 #import "ORKConsentSceneViewController.h"
-#import "ORKConsentLearnMoreViewController.h"
-#import "ORKHelpers.h"
-#import "ORKSkin.h"
-#import <ResearchKit/ResearchKit_Private.h>
-#import "ORKVerticalContainerView.h"
-#import "ORKVerticalContainerView_Internal.h"
-#import "ORKConsentSection+AssetLoading.h"
-#import "ORKConsentDocument_Internal.h"
-#import "ORKConsentSection_Internal.h"
-#import "ORKStepHeaderView_Internal.h"
-#import "ORKNavigationContainerView_Internal.h"
+#import "ORKConsentSceneViewController_Internal.h"
 
-@interface ORKConsentSceneView : ORKVerticalContainerView
+#import "ORKNavigationContainerView_Internal.h"
+#import "ORKStepHeaderView_Internal.h"
+#import "ORKTintedImageView.h"
+#import "ORKStepView_Private.h"
+#import "ORKStepContentView_Private.h"
+#import "ORKConsentLearnMoreViewController.h"
+
+#import "ORKConsentDocument_Internal.h"
+#import "ORKConsentSection_Private.h"
+
+#import "ORKHelpers_Internal.h"
+#import "ORKSkin.h"
+
+
+@interface ORKConsentSceneView ()
 
 @property (nonatomic, strong) ORKConsentSection *consentSection;
 
@@ -50,43 +55,16 @@
 
 @implementation ORKConsentSceneView
 
-
-- (void)setConsentSection:(ORKConsentSection *)consentSection
-{
+- (void)setConsentSection:(ORKConsentSection *)consentSection {
     _consentSection = consentSection;
     
-    BOOL isOverview = (consentSection.type == ORKConsentSectionTypeOverview);
-    self.verticalCenteringEnabled = isOverview;
-    self.continueHugsContent =  isOverview;
+    self.stepTopContentImage = consentSection.image;
+    self.stepText = [consentSection summary];
     
-    self.scrollEnabled = NO;
-    
-    self.headerView.instructionLabel.hidden = ! [[consentSection summary] length];
-    self.headerView.captionLabel.text = consentSection.title;
-    
-    UIImage *image = nil;
-    if (consentSection.type == ORKConsentSectionTypeCustom) {
-        image = [consentSection.customImage imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    } else {
-        image = ORKImageForConsentSectionType(consentSection.type);
-    }
-    
-    self.imageView.image = image;
-    self.headerView.instructionLabel.text = [consentSection summary];
-    
-    self.continueSkipContainer.continueEnabled = YES;
-    [self.continueSkipContainer updateContinueAndSkipEnabled];
-}
-
-
-@end
-
-@interface ORKConsentSceneViewController ()
-{
-    ORKConsentSceneView *_sceneView;
 }
 
 @end
+
 
 static NSString *localizedLearnMoreForType(ORKConsentSectionType sectionType) {
     NSString *str = ORKLocalizedString(@"BUTTON_LEARN_MORE", nil);
@@ -123,66 +101,129 @@ static NSString *localizedLearnMoreForType(ORKConsentSectionType sectionType) {
     return str;
 }
 
-@implementation ORKConsentSceneViewController
+
+@implementation ORKConsentSceneViewController {
+    ORKNavigationContainerView *_navigationFooterView;
+    NSArray<NSLayoutConstraint *> *_constraints;
+    
+}
 
 - (instancetype)initWithSection:(ORKConsentSection *)section {
     self = [super init];
     if (self) {
         _section = section;
+        self.title = section.title;
         self.learnMoreButtonTitle = _section.customLearnMoreButtonTitle;
     }
     return self;
-
-}
-
-- (void)loadView {
-    _sceneView = [ORKConsentSceneView new];
-    self.view = _sceneView;
 }
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    
+    _sceneView = [ORKConsentSceneView new];
     _sceneView.consentSection = _section;
-    _sceneView.continueSkipContainer.continueButtonItem = _continueButtonItem;
-    _sceneView.imageView.hidden = _imageHidden;
+    _sceneView.stepTitle = _section.title;
+    [self.view addSubview:_sceneView];
     
-    if ([_section.content length]||[_section.htmlContent length]) {
-        _sceneView.headerView.learnMoreButtonItem = [[UIBarButtonItem alloc] initWithTitle:_learnMoreButtonTitle ? : localizedLearnMoreForType(_section.type) style:UIBarButtonItemStylePlain target:self action:@selector(showContent:)];
+    if (_section.content.length||_section.htmlContent.length || _section.contentURL) {
+        ORK_Log_Info("%@", localizedLearnMoreForType(_section.type));
     }
+    [self setupNavigationFooterView];
+    [self setupConstraints];
 }
 
-- (void)setImageHidden:(BOOL)imageHidden {
-    _imageHidden = imageHidden;
-    _sceneView.imageView.hidden = imageHidden;
+- (void)setupNavigationFooterView {
+    if (!_navigationFooterView) {
+        _navigationFooterView = _sceneView.navigationFooterView ;
+    }
+    _navigationFooterView.continueButtonItem = _continueButtonItem;
+    _navigationFooterView.continueEnabled = YES;
+    [_navigationFooterView updateContinueAndSkipEnabled];
+}
+
+- (void)setupConstraints {
+    if (_constraints) {
+        [NSLayoutConstraint deactivateConstraints:_constraints];
+    }
+    _constraints = nil;
+    _sceneView.translatesAutoresizingMaskIntoConstraints = NO;
+    
+    _constraints = @[
+                     [NSLayoutConstraint constraintWithItem:_sceneView
+                                                  attribute:NSLayoutAttributeTop
+                                                  relatedBy:NSLayoutRelationEqual
+                                                     toItem:self.view
+                                                  attribute:NSLayoutAttributeTop
+                                                 multiplier:1.0
+                                                   constant:0.0],
+                     [NSLayoutConstraint constraintWithItem:_sceneView
+                                                  attribute:NSLayoutAttributeLeft
+                                                  relatedBy:NSLayoutRelationEqual
+                                                     toItem:self.view
+                                                  attribute:NSLayoutAttributeLeft
+                                                 multiplier:1.0
+                                                   constant:0.0],
+                     [NSLayoutConstraint constraintWithItem:_sceneView
+                                                  attribute:NSLayoutAttributeRight
+                                                  relatedBy:NSLayoutRelationEqual
+                                                     toItem:self.view
+                                                  attribute:NSLayoutAttributeRight
+                                                 multiplier:1.0
+                                                   constant:0.0],
+                     [NSLayoutConstraint constraintWithItem:_sceneView
+                                                  attribute:NSLayoutAttributeBottom
+                                                  relatedBy:NSLayoutRelationEqual
+                                                     toItem:self.view
+                                                  attribute:NSLayoutAttributeBottom
+                                                 multiplier:1.0
+                                                   constant:0.0]
+                     ];
+    [NSLayoutConstraint activateConstraints:_constraints];
 }
 
 - (void)setContinueButtonItem:(UIBarButtonItem *)continueButtonItem {
     _continueButtonItem = continueButtonItem;
-    
-    _sceneView.continueSkipContainer.continueButtonItem = continueButtonItem;
+    _navigationFooterView.continueButtonItem = continueButtonItem;
 }
 
+- (void)setCancelButtonItem:(UIBarButtonItem *)cancelButtonItem {
+    _cancelButtonItem = cancelButtonItem;
+}
 
-- (void)setLearnMoreButtonTitle:(NSString *)learnMoreButtonTitle {
-    _learnMoreButtonTitle = learnMoreButtonTitle;
-    
-    UIBarButtonItem *item = _sceneView.headerView.learnMoreButtonItem;
-    if (item) {
-        item.title = _learnMoreButtonTitle ? : localizedLearnMoreForType(_section.type);
-        _sceneView.headerView.learnMoreButtonItem = item;
+- (UIScrollView *)scrollView {
+    return (UIScrollView *)self.view;
+}
+
+- (void)scrollToTopAnimated:(BOOL)animated completion:(void (^)(BOOL finished))completion {
+    ORKConsentSceneView *consentSceneView = (ORKConsentSceneView *)self.view;
+    CGRect targetBounds = consentSceneView.bounds;
+    targetBounds.origin.y = 0;
+    if (animated) {
+        [UIView animateWithDuration:ORKScrollToTopAnimationDuration animations:^{
+            consentSceneView.bounds = targetBounds;
+        } completion:completion];
+    } else {
+        consentSceneView.bounds = targetBounds;
+        if (completion) {
+            completion(YES);
+        }
     }
 }
-
 
 #pragma mark - Action
 
 - (IBAction)showContent:(id)sender {
-
-    ORKConsentLearnMoreViewController *vc = [[ORKConsentLearnMoreViewController alloc] initWithHTMLContent:(NSString *__nonnull)((_section.htmlContent.length > 0)?_section.htmlContent : _section.escapedContent)];
-    vc.title = ORKLocalizedString(@"CONSENT_LEARN_MORE_TITLE", nil);
-    UINavigationController *navc = [[UINavigationController alloc] initWithRootViewController:vc];
-    [self presentViewController:navc animated:YES completion:nil];
+    ORKConsentLearnMoreViewController *viewController = nil;
+    
+    if (_section.contentURL) {
+        viewController = [[ORKConsentLearnMoreViewController alloc] initWithContentURL:_section.contentURL];
+    } else {
+        viewController = [[ORKConsentLearnMoreViewController alloc] initWithHTMLContent:((_section.htmlContent.length > 0) ? _section.htmlContent : _section.escapedContent)];
+    }
+    viewController.title = _section.title ?: ORKLocalizedString(@"CONSENT_LEARN_MORE_TITLE", nil);
+    UINavigationController *navigationController = [[UINavigationController alloc] initWithRootViewController:viewController];
+    navigationController.modalPresentationStyle = UIModalPresentationFormSheet;
+    [self presentViewController:navigationController animated:YES completion:nil];
 }
 
 - (UIModalPresentationStyle)adaptivePresentationStyleForPresentationController:(UIPresentationController *)controller {

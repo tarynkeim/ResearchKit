@@ -28,12 +28,18 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <ResearchKit/ResearchKit_Private.h>
+
+@import Foundation;
+#import <ResearchKit/ORKDefines.h>
+#import <ResearchKit/ORKActiveStepViewController.h>
+
 
 NS_ASSUME_NONNULL_BEGIN
 
 ORK_CLASS_AVAILABLE
 @interface ORKAudioStepViewController : ORKActiveStepViewController
+
+@property (nonatomic, assign) CGFloat alertThreshold;
 
 @end
 

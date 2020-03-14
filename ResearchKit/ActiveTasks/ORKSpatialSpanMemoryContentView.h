@@ -28,8 +28,11 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKCustomStepView_Internal.h"
 #import "ORKSpatialSpanTargetView.h"
+#import "ORKBorderedButton.h"
+
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -45,6 +48,7 @@ typedef struct {
 - (void)gameView:(ORKSpatialSpanMemoryGameView *)gameView didTapTileWithIndex:(NSInteger)tileIndex recognizer:(UITapGestureRecognizer *)recognizer;
 
 @end
+
 
 @interface ORKSpatialSpanMemoryGameView : UIView <ORKSpatialSpanTargetViewDelegate>
 
@@ -77,7 +81,7 @@ typedef struct {
 // Things that can be shown in the footer.
 @property (nonatomic, assign) NSInteger numberOfItems;
 @property (nonatomic, assign) NSInteger score;
-@property (nonatomic, strong, nullable) UIBarButtonItem *buttonItem;
+@property (nonatomic, strong, nullable) ORKBorderedButton *buttonItem;
 
 @end
 

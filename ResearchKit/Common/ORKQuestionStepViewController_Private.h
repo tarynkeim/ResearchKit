@@ -28,7 +28,10 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <ResearchKit/ResearchKit_Private.h>
+
+#import <ResearchKit/ORKQuestionStepViewController.h>
+#import <ResearchKit/ORKCustomStepView.h>
+
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -43,6 +46,10 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property (nonatomic, strong, nullable) ORKQuestionStepCustomView *customQuestionView;
 
+/**
+ Set the step answer.
+ */
+- (void)setAnswer:(id)answer;
 
 @end
 

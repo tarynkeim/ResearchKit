@@ -28,11 +28,22 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKSpatialSpanGame.h"
 
-@implementation ORKSpatialSpanGame
-{
+#import "ORKHelpers_Internal.h"
+
+
+@implementation ORKSpatialSpanGame {
     NSInteger *_sequence;
+}
+
++ (instancetype)new {
+    ORKThrowMethodUnavailableException();
+}
+
+- (instancetype)init {
+    ORKThrowMethodUnavailableException();
 }
 
 - (void)generateSequence {
@@ -48,7 +59,7 @@
     // Note: we will only use the first _sequenceLength elements of this array
     srandom(_seed);
     for (NSInteger i = 0; i < _gameSize; i++) {
-        NSInteger rand_i = random() % _gameSize;
+        NSInteger rand_i = arc4random() % _gameSize;
         NSInteger tmp = _sequence[i];
         _sequence[i] = _sequence[rand_i];
         _sequence[rand_i] = tmp;
@@ -81,12 +92,9 @@
         if (_sequence == NULL) {
             self = nil;
         }
-        
     }
     return self;
 }
-
-
 
 /// Step parameter is the step in the sequence; tileIndex is the value of that step of the sequence.
 - (void)enumerateSequenceWithHandler:(void(^)(NSInteger step, NSInteger tileIndex, BOOL isLastStep, BOOL *stop))handler {

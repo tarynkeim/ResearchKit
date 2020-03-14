@@ -29,20 +29,29 @@
  */
 
 
+@import UIKit;
 #import <ResearchKit/ORKTask.h>
+
 
 NS_ASSUME_NONNULL_BEGIN
 
 /**
- The `ORKOrderedTask` class implements all the methods in the `ORKTask` protocol and represents a task that assumes a fixed order for its steps.
+ The `ORKOrderedTask` class implements all the methods in the `ORKTask` protocol and represents a 
+ task that assumes a fixed order for its steps.
  
- In the ResearchKit framework, any simple sequential task, such as a survey or an
- active task, can be represented as an ordered task.
+ In the ResearchKit framework, any simple sequential task, such as a survey or an active task, can
+ be represented as an ordered task.
  
- To enable conditional behaviors in a task, it can be easier to subclass `ORKOrderedTask` and override particular `ORKTask` methods than it is to implement the `ORKTask` protocol directly. For example, if you want to display a survey question only when the user answered Yes to the previous question, you can override `stepAfterStep:withResult:` and `stepBeforeStep:withResult:` and call super for all other methods.
+ If you want further custom conditional behaviors in a task, it can be easier to subclass
+ `ORKOrderedTask` or `ORKNavigableOrderedTask` and override particular `ORKTask` methods than it is
+ to implement the `ORKTask` protocol directly. Override the methods `stepAfterStep:withResult:` and
+ `stepBeforeStep:withResult:`, and call super for all other methods.
  */
 ORK_CLASS_AVAILABLE
 @interface ORKOrderedTask : NSObject <ORKTask, NSSecureCoding, NSCopying>
+
++ (instancetype)new NS_UNAVAILABLE;
+- (instancetype)init NS_UNAVAILABLE;
 
 /// @name Initializers
 
@@ -55,7 +64,7 @@ ORK_CLASS_AVAILABLE
  @return An initialized ordered task.
  */
 - (instancetype)initWithIdentifier:(NSString *)identifier
-                             steps:(nullable NSArray *)steps NS_DESIGNATED_INITIALIZER;
+                             steps:(nullable NSArray<ORKStep *> *)steps NS_DESIGNATED_INITIALIZER;
 
 /**
  Returns an ordered task initialized from data in the given unarchiver.
@@ -79,217 +88,64 @@ ORK_CLASS_AVAILABLE
  The associated task view controller presents the steps in
  array order.
  */
-@property (nonatomic, copy, readonly) NSArray *steps;
-
-@end
-
-
+@property (nonatomic, copy, readonly) NSArray<ORKStep *> *steps;
 
 /**
- The `ORKPredefinedTaskOption` flags let you exclude particular behaviors from
- the predefined active tasks in the Predefined category of `ORKOrderedTask`.
- 
- By default, all predefined tasks include instructions and conclusion steps, and may also include one or more data collection recorder configurations. Although not
- all predefined tasks include all of these data collection types, the predefined task option
- flags can be used to explicitly specify that a task option not be included.
+ Color property of the progress label.
+ Default is black.
  */
-
-typedef NS_OPTIONS(NSUInteger, ORKPredefinedTaskOption) {
-    /// Default behavior.
-    ORKPredefinedTaskOptionNone = 0,
-    
-    /// Exclude the initial instruction steps.
-    ORKPredefinedTaskOptionExcludeInstructions = (1 << 0),
-    
-    /// Exclude the conclusion step.
-    ORKPredefinedTaskOptionExcludeConclusion = (1 << 1),
-    
-    /// Exclude accelerometer data collection.
-    ORKPredefinedTaskOptionExcludeAccelerometer = (1 << 2),
-    
-    /// Exclude device motion data collection.
-    ORKPredefinedTaskOptionExcludeDeviceMotion = (1 << 3),
-    
-    /// Exclude pedometer data collection.
-    ORKPredefinedTaskOptionExcludePedometer = (1 << 4),
-    
-    /// Exclude location data collection.
-    ORKPredefinedTaskOptionExcludeLocation = (1 << 5),
-    
-    /// Exclude heart rate data collection.
-    ORKPredefinedTaskOptionExcludeHeartRate = (1 << 6),
-    
-    /// Exclude audio data collection.
-    ORKPredefinedTaskOptionExcludeAudio = (1 << 7)
-} ORK_ENUM_AVAILABLE;
-
-
-@interface ORKOrderedTask (ORKPredefinedActiveTask)
+@property (nonatomic) UIColor *progressLabelColor;
 
 /**
- Returns a predefined task that consists of a fitness check.
+ Return a mutated copy of self replacing the steps by the passed ones.
  
- In a fitness check task, the participant is asked to walk for a specified
- duration (typically several minutes). During this period, various sensor data
- is collected and returned by the task view controller's delegate. Sensor data can include accelerometer, device motion, pedometer, location, and heart rate
- data where available.
+ This method is intended to allow for mutating an ordered task (or subclass) while retaining
+ the original class and properties that may not be publicly exposed, but with a mutated set
+ of steps. An example of where this might be useful is if before performing an `ORKPredefinedActiveTask`, 
+ the app needed to query the participant about medications, diet or sleep. The app
+ would need to mutate the steps in order to insert their own steps. While an ORKOrderedTask could
+ then be created with the same identifier and the new steps, subclass information such rules on an
+ `ORKNavigableOrderedTask` would be lost.
  
- At the conclusion of the walk, if heart rate data is available, the participant
- is asked to sit down and rest for a period. Data collection continues during this
- period.
+ @param steps       An array of `ORKStep` objects in the order in which they should be presented.
  
- By default, the task includes an instruction step that explains what the user needs to do
- during the task, but this can be excluded with `ORKPredefinedTaskOptionExcludeInstructions`.
- 
- Data collected from this task can be used to compute measures of general fitness.
- 
- @param identifier   The task identifier to use for this task, appropriate to the study.
- @param intendedUseDescription  A localized string describing the intended use of the data collected.
- If the value of this parameter is `nil`, the default localized text is displayed.
- @param walkDuration The duration of the walk (the maximum is 10 minutes).
- @param restDuration The duration of the post walk rest period.
- @param options      Options that affect the features of the predefined task.
- @return An active fitness check task that can be presented with an `ORKTaskViewController` object.
+ @return            An initialized ordered task.
  */
-+ (ORKOrderedTask *)fitnessCheckTaskWithIdentifier:(NSString *)identifier
-                            intendedUseDescription:(nullable NSString *)intendedUseDescription
-                                      walkDuration:(NSTimeInterval)walkDuration
-                                      restDuration:(NSTimeInterval)restDuration
-                                           options:(ORKPredefinedTaskOption)options;
+- (instancetype)copyWithSteps:(NSArray <ORKStep *> *)steps;
 
 /**
- Returns a predefined task that consists of a short walk.
+ Return a mutated copy of self replacing the steps and identifier by the ones passed.
  
- In a short walk task, the participant is asked to walk a short distance,
- which may be indoors. Typical uses of the resulting data are to assess stride length,
- smoothness, sway, or other aspects of the participant's gait.
+ This method is intended to allow for mutating an ordered task (or subclass) while retaining
+ the original class and properties that may not be publicly exposed, but with a mutated set
+ of steps. An example of where this might be useful is if before performing an `ORKPredefinedActiveTask`,
+ the app needed to query the participant about medications, diet or sleep. The app
+ would need to mutate the steps in order to insert their own steps. While an ORKOrderedTask could
+ then be created with the same identifier and the new steps, subclass information such rules on an
+ `ORKNavigableOrderedTask` would be lost.
  
- The presentation of the short walk task differs from the fitness check task in that the
- distance is replaced by the number of steps taken, and the walk is split into
- a series of legs. After each leg, the user is asked to turn and reverse direction.
+ @param steps       An array of `ORKStep` objects in the order in which they should be presented.
+ @param identifier  The new task identifier
  
- The data collected by this task can include accelerometer, device motion, and pedometer data.
- 
- @param identifier    The task identifier to use for this task, appropriate to the study.
- @param intendedUseDescription   A localized string describing the intended use of the data collected.
- If the value of this parameter is `nil`, the default localized text is displayed.
- @param numberOfStepsPerLeg The number of steps the participant is asked to walk.
- If the pedometer is unavailable, a distance is suggested
- and a suitable count down timer is displayed for each leg of the walk.
- @param restDuration  The duration of the rest period. When the value of this parameter is nonzero, the user is asked to stand still for the specified rest period after the turn sequence has been completed, and baseline data is collected.
- @param options       Options that affect the features of the predefined task.
- 
- @return An active short walk task that can be presented with an `ORKTaskViewController` object.
- 
+ @return            An initialized ordered task.
  */
-+ (ORKOrderedTask *)shortWalkTaskWithIdentifier:(NSString *)identifier
-                         intendedUseDescription:(nullable NSString *)intendedUseDescription
-                            numberOfStepsPerLeg:(NSInteger)numberOfStepsPerLeg
-                                   restDuration:(NSTimeInterval)restDuration
-                                        options:(ORKPredefinedTaskOption)options;
-
+- (instancetype)copyWithSteps:(NSArray <ORKStep *> *)steps identifier:(NSString *)identifier;
 
 /**
- Returns a predefined task that enables an audio recording.
+ Append the passed steps to the end of the current task.
  
- In an audio recording task, the participant is asked to make some kind of sound
- with their voice, and the audio data is collected.
- 
- An audio task can be used to measure properties of the user's voice, such as
- frequency range, or the ability to pronounce certain sounds.
- 
- Data collected in this task consists of audio information.
- 
- @param identifier        The task identifier to use for this task, appropriate to the study.
- @param intendedUseDescription       A localized string describing the intended use of the data collected. If the value of this parameter is `nil`, default localized text is used.
- @param speechInstruction  Instructional content describing what the user needs to do when recording begins. If the value of this parameter is `nil`, default localized text is used.
- @param shortSpeechInstruction Instructional content shown during audio recording. If the value of this parameter is `nil`, default localized text is used.
- @param duration          The length of the count down timer that runs while audio data is collected.
- @param recordingSettings See "AV Foundation Audio Settings Constants" for possible values.
- @param options           Options that affect the features of the predefined task.
- @return An active audio task that can be presented with an `ORKTaskViewController` object.
- 
+ @param steps       The steps to append to the task.
  */
-+ (ORKOrderedTask *)audioTaskWithIdentifier:(NSString *)identifier
-                     intendedUseDescription:(nullable NSString *)intendedUseDescription
-                          speechInstruction:(nullable NSString *)speechInstruction
-                     shortSpeechInstruction:(nullable NSString *)shortSpeechInstruction
-                                   duration:(NSTimeInterval)duration
-                          recordingSettings:(nullable NSDictionary *)recordingSettings
-                                    options:(ORKPredefinedTaskOption)options;
 
+- (void)appendSteps:(NSArray<ORKStep *> *)additionalSteps;
 
 /**
- Returns a predefined task that consists of two finger tapping.
+ Find the index of a given step.
  
- In a two finger tapping task, the participant is asked to rhythmically and alternately
- tap two targets on the device screen.
- 
- A two finger tapping task can be used to assess basic motor
- capabilities including speed, accuracy, and rhythm.
- 
- Data collected in this task includes touch activity and accelerometer information.
- 
- @param identifier        The task identifier to use for this task, appropriate to the study.
- @param intendedUseDescription       A localized string describing the intended use of the data collected. If the value of this parameter is `nil`,
-            the default localized text will be displayed.
- @param duration          The length of the count down timer that runs while touch data is collected.
- @param options           Options that affect the features of the predefined task.
- @return An active two finger tapping task that can be presented with an `ORKTaskViewController` object.
- 
+ @param step        The step to look for
+ @return            The index position of the step (or NSNotFound if not found)
  */
-+ (ORKOrderedTask *)twoFingerTappingIntervalTaskWithIdentifier:(NSString *)identifier
-                                        intendedUseDescription:(nullable NSString *)intendedUseDescription
-                                                      duration:(NSTimeInterval)duration
-                                                       options:(ORKPredefinedTaskOption)options;
-
-/**
- Returns a predefined task that tests spatial span memory.
- 
- In a spatial span memory task, the participant is asked to repeat pattern sequences of increasing
- length in a game-like environment. You can use this task to assess visuospatial memory and executive function.
-
- 
- In each round of the task, an array of
- target images are shown in a grid (by default, the images are flowers). The round consists of a
- demonstration phase and an interactive phase. In the demonstration phase,
- some of the flowers change color in a specific sequence. After the demonstration, the user is asked to tap the flowers in the same sequence for the interactive phase.
- 
- The span (that is, the length of the pattern sequence) is automatically varied during the
- task, increasing after users succeed and decreasing after they fail, within
- the range specified by minimum and maximum values that you specify. You can also customize the speed of sequence playback and the shape of the tap target.
- 
- A spatial span memory task finishes when the user has either completed the maximum number of tests or made the maximum number of errors.
- 
- Data collected by the task is in the form of an `ORKSpatialSpanMemoryResult` object.
- 
- @param identifier        The task identifier to use for this task, appropriate to the study.
- @param intendedUseDescription       A localized string describing the intended use of the data collected. If the value of this parameter is `nil`, the default localized text is displayed.
- @param initialSpan       The  sequence length of the initial memory pattern.
- @param minimumSpan           The minimum pattern sequence length.
- @param maximumSpan           The maximum pattern sequence length.
- @param playSpeed         The time per sequence item; a smaller value means faster sequence play.
- @param maxTests          The maximum number of rounds to conduct.
- @param maxConsecutiveFailures       The maximum number of consecutive failures the user can make before the task is terminated.
- @param customTargetImage The image to use for the task. By default, and if the value of this parameter is `nil`, the image is a flower. To supply a custom image, create a template image to which iOS adds the tint color.
- @param customTargetPluralName    The name associated with `customTargetImage`; by default, the value of this parameter is @"flowers".
- @param requireReversal   A Boolean value that indicates whether to require the user to tap the sequence in reverse order.
- @param options           Options that affect the features of the predefined task.
- @return An active spatial span memory task that can be presented with an `ORKTaskViewController` object.
- */
-+ (ORKOrderedTask *)spatialSpanMemoryTaskWithIdentifier:(NSString *)identifier
-                                 intendedUseDescription:(nullable NSString *)intendedUseDescription
-                                            initialSpan:(NSInteger)initialSpan
-                                            minimumSpan:(NSInteger)minimumSpan
-                                            maximumSpan:(NSInteger)maximumSpan
-                                              playSpeed:(NSTimeInterval)playSpeed
-                                               maxTests:(NSInteger)maxTests
-                                 maxConsecutiveFailures:(NSInteger)maxConsecutiveFailures
-                                      customTargetImage:(nullable UIImage *)customTargetImage
-                                 customTargetPluralName:(nullable NSString *)customTargetPluralName
-                                        requireReversal:(BOOL)requireReversal
-                                                options:(ORKPredefinedTaskOption)options;
-
+- (NSUInteger)indexOfStep:(ORKStep *)step;
 
 @end
 

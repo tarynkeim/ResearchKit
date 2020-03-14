@@ -29,10 +29,11 @@
  */
 
 
-
 #import "ORKSurveyAnswerCell.h"
-#import "ORKHelpers.h"
+
+#import "ORKHelpers_Internal.h"
 #import "ORKSkin.h"
+
 
 @interface ORKSurveyAnswerCell ()
 
@@ -42,6 +43,7 @@
 
 @end
 
+
 @implementation ORKSurveyAnswerCell
 
 - (instancetype)initWithStyle:(UITableViewCellStyle)style
@@ -49,17 +51,15 @@
                          step:(ORKQuestionStep *)step
                        answer:(id)answer
                      delegate:(id<ORKSurveyAnswerCellDelegate>)delegate {
-
     self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
-    
     if (self) {
         _delegate = delegate;
         // Set _answer first to resolve the dependency loop between setStep and setAnswer.
         _answer = answer;
         self.step  = step;
         self.answer = answer;
+        self.clipsToBounds = YES;
     }
-    
     return self;
 }
 
@@ -69,14 +69,9 @@
 }
 
 - (void)prepareView {
-    
     if (self.textField != nil || self.textView != nil) {
         [self registerForKeyboardNotifications];
     }
-}
-
-- (void)layoutSubviews {
-    [super layoutSubviews];
 }
 
 - (UITextField *)textField {
@@ -114,33 +109,29 @@
 }
 
 - (void)showValidityAlertWithMessage:(NSString *)text {
-    
     [self.delegate answerCell:self invalidInputAlertWithMessage:text];
+}
+
+- (void)showValidityAlertWithTitle:(NSString *)title message:(NSString *)message {
+    [self.delegate answerCell:self invalidInputAlertWithTitle:title message:message];
 }
 
 #pragma mark - KeyboardNotifications
 
 // Call this method somewhere in your view controller setup code.
-- (void)registerForKeyboardNotifications
-{
-    
+- (void)registerForKeyboardNotifications {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(keyboardWillAppear:)
                                                  name:UIKeyboardWillShowNotification object:nil];
-    
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(keyboardWillHide:)
                                                  name:UIKeyboardWillHideNotification object:nil];
-    
 }
 
-
 // Called when the UIKeyboardDidShowNotification is sent.
-- (void)keyboardWillAppear:(NSNotification *)aNotification
-{
-    
+- (void)keyboardWillAppear:(NSNotification *)aNotification {
     UIView *inputView = self.textView == nil ? self.textField : self.textView;
     
     if (inputView == nil) {
@@ -153,11 +144,11 @@
     _cachedContentInsets = tableView.contentInset;
     _cachedScrollIndicatorInsets = tableView.scrollIndicatorInsets;
     
-    NSDictionary *info = [aNotification userInfo];
-    CGSize kbSize = [info[UIKeyboardFrameEndUserInfoKey] CGRectValue].size;
-    kbSize.height = kbSize.height-44;
+    NSDictionary *userInfo = aNotification.userInfo;
+    CGSize keyboardSize = ((NSValue *)userInfo[UIKeyboardFrameEndUserInfoKey]).CGRectValue.size;
+    keyboardSize.height = keyboardSize.height - 44;
     
-    UIEdgeInsets contentInsets = UIEdgeInsetsMake(0.0, 0.0, kbSize.height, 0.0);
+    UIEdgeInsets contentInsets = UIEdgeInsetsMake(0.0, 0.0, keyboardSize.height, 0.0);
     
     tableView.contentInset = contentInsets;
     tableView.scrollIndicatorInsets = contentInsets;
@@ -165,23 +156,21 @@
     CGRect cellFrame = cell.frame;
     CGPoint desiredOffset = cellFrame.origin;
     
-    CGRect availFrame = tableView.frame;
-    availFrame.size.height -= kbSize.height;
+    CGRect availableFrame = tableView.frame;
+    availableFrame.size.height -= keyboardSize.height;
     
-    desiredOffset.y = cellFrame.origin.y - (availFrame.size.height/2);
+    desiredOffset.y = cellFrame.origin.y - (availableFrame.size.height / 2);
     
-    if (availFrame.size.height > cellFrame.size.height)
-    {
-        desiredOffset.y = cellFrame.origin.y - (availFrame.size.height - cellFrame.size.height) - (cellFrame.size.height -55);
+    if (availableFrame.size.height > cellFrame.size.height) {
+        desiredOffset.y = cellFrame.origin.y - (availableFrame.size.height - cellFrame.size.height) - (cellFrame.size.height - 55);
     }
-    desiredOffset.y = MAX(desiredOffset.y,0);
+    desiredOffset.y = MAX(desiredOffset.y, 0);
 
     [tableView setContentOffset:desiredOffset animated:NO];
 }
 
 // Called when the UIKeyboardWillHideNotification is sent
-- (void)keyboardWillHide:(NSNotification *)aNotification
-{
+- (void)keyboardWillHide:(NSNotification *)aNotification {
     UIView *inputView = self.textView == nil ? self.textField : self.textView;
     
     if (inputView == nil) {
@@ -209,13 +198,32 @@
 }
 
 - (NSArray *)suggestedCellHeightConstraintsForView:(UIView *)view {
-    return @[[NSLayoutConstraint constraintWithItem:self attribute:NSLayoutAttributeHeight relatedBy:NSLayoutRelationEqual toItem:nil attribute:NSLayoutAttributeHeight multiplier:1.0 constant:[[self class] suggestedCellHeightForView:view]]];
+    NSLayoutConstraint *constaint = [NSLayoutConstraint constraintWithItem:self
+                                                                 attribute:NSLayoutAttributeHeight
+                                                                 relatedBy:NSLayoutRelationEqual
+                                                                    toItem:nil
+                                                                 attribute:NSLayoutAttributeHeight
+                                                                multiplier:1.0
+                                                                  constant:[[self class] suggestedCellHeightForView:view]];
+    constaint.priority = UILayoutPriorityDefaultHigh;
+    return @[constaint];
 }
 
 + (CGFloat)suggestedCellHeightForView:(UIView *)view {
-    ORKScreenType screenType = ORKGetScreenTypeForWindow(view.window);
-    return ORKGetMetricForScreenType(ORKScreenMetricTableCellDefaultHeight, screenType);
+    return ORKGetMetricForWindow(ORKScreenMetricTableCellDefaultHeight, view.window);
 }
 
++ (NSLayoutConstraint *)fullWidthLayoutConstraint:(UIView *)view {
+    NSLayoutConstraint *widthConstraint = [NSLayoutConstraint constraintWithItem:view
+                                                                       attribute:NSLayoutAttributeWidth
+                                                                       relatedBy:NSLayoutRelationEqual
+                                                                          toItem:nil
+                                                                       attribute:NSLayoutAttributeNotAnAttribute
+                                                                      multiplier:1.0
+                                                                        constant:10000];
+    
+    widthConstraint.priority = UILayoutPriorityDefaultLow + 1;
+    return widthConstraint;
+}
 
 @end

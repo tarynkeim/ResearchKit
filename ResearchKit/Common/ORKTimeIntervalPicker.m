@@ -28,13 +28,18 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKTimeIntervalPicker.h"
+
 #import "ORKAnswerFormat_Internal.h"
-#import "ORKHelpers.h"
+
+#import "ORKHelpers_Internal.h"
+
 
 @interface ORKDatePicker : UIDatePicker
 
 @end
+
 
 @implementation ORKDatePicker
 
@@ -49,11 +54,13 @@
 
 @end
 
+
 @interface ORKTimeIntervalPicker ()
 
 @property (nonatomic, strong) ORKTimeIntervalAnswerFormat *answerFormat;
 
 @end
+
 
 @implementation ORKTimeIntervalPicker {
     id _answer;
@@ -69,7 +76,6 @@
                       pickerDelegate:(id<ORKPickerDelegate>)delegate {
     self = [super init];
     if (self) {
-        
         self.answerFormat = answerFormat;
         self.answer = answer;
         self.pickerDelegate = delegate;
@@ -81,7 +87,7 @@
     if (_pickerView == nil) {
         _pickerView = [[ORKDatePicker alloc] init];
         _pickerView.datePickerMode = UIDatePickerModeCountDownTimer;
-        [_pickerView addTarget:self action:@selector(valueChanged:) forControlEvents:UIControlEventValueChanged];
+        [_pickerView addTarget:self action:@selector(valueDidChange:) forControlEvents:UIControlEventValueChanged];
         [self setAnswerFormat:_answerFormat];
         [self setAnswer:_answer];
     }
@@ -89,12 +95,11 @@
 }
 
 - (void)setAnswer:(id)answer {
-
     _answer = answer;
     
     NSTimeInterval value;
     if (answer != nil && answer != ORKNullAnswerValue()  && [answer isKindOfClass:[NSNumber class]]) {
-        value = [(NSNumber *)answer doubleValue];
+        value = ((NSNumber *)answer).doubleValue;
     } else {
         value = [_answerFormat pickerDefaultDuration];
     }
@@ -110,15 +115,15 @@
 }
 
 - (NSString *)selectedLabelText {
-    return  (_answer == nil || _answer == ORKNullAnswerValue())? nil : [ORKTimeIntervalLabelFormatter() stringFromTimeInterval: [self.answer floatValue]];
+    return  (_answer == nil || _answer == ORKNullAnswerValue()) ? nil : [ORKTimeIntervalLabelFormatter() stringFromTimeInterval:((NSNumber *)self.answer).floatValue];
 }
 
 - (void)pickerWillAppear {
     [self pickerView];
-    [self valueChanged:nil];
+    [self valueDidChange:nil];
 }
 
-- (void)valueChanged:(id)sender {
+- (void)valueDidChange:(id)sender {
     NSTimeInterval interval = _pickerView.countDownDuration;
     _answer = @(interval);
     
@@ -126,6 +131,5 @@
         [self.pickerDelegate picker:self answerDidChangeTo:self.answer];
     }
 }
-
 
 @end

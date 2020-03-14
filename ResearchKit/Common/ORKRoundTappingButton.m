@@ -28,34 +28,65 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#import "ORKTextButton_Internal.h"
 #import "ORKRoundTappingButton.h"
 
-@implementation ORKRoundTappingButton
 
-static const CGFloat RoundTappingButtonDiameter = 104;
+static const CGFloat RoundTappingButtonDefaultDiameter = 104;
 
-- (void)init_ORKTextButton {
-    
-    [super init_ORKTextButton];
-    self.fadeDelay = 0.2;
-    self.layer.cornerRadius = RoundTappingButtonDiameter*0.5;
+
+@implementation ORKRoundTappingButton {
+    NSLayoutConstraint *_widthConstraint;
+    NSLayoutConstraint *_heightConstraint;
 }
 
-- (CGSize)intrinsicContentSize {
-    
-    return CGSizeMake(RoundTappingButtonDiameter, RoundTappingButtonDiameter);
+
+- (void)init_ORKTextButton {
+    [super init_ORKTextButton];
+    self.fadeDelay = 0.2;
+    [self setDiameter:RoundTappingButtonDefaultDiameter];
+    [self updateDimensionConstraints];
+}
+
+- (void)setDiameter:(CGFloat)diameter {
+    _diameter = diameter;
+    self.layer.cornerRadius = diameter * 0.5;
+    [self updateDimensionConstraints];
+}
+
+- (void)updateDimensionConstraints {
+    if (_widthConstraint && _widthConstraint.active) {
+        [NSLayoutConstraint deactivateConstraints:@[_widthConstraint]];
+    }
+    if (_heightConstraint && _heightConstraint.active) {
+        [NSLayoutConstraint deactivateConstraints:@[_heightConstraint]];
+    }
+    _widthConstraint = [NSLayoutConstraint constraintWithItem:self
+                                                    attribute:NSLayoutAttributeWidth
+                                                    relatedBy:NSLayoutRelationEqual
+                                                       toItem:nil
+                                                    attribute:NSLayoutAttributeNotAnAttribute
+                                                   multiplier:1.0
+                                                     constant:_diameter];
+    _heightConstraint = [NSLayoutConstraint constraintWithItem:self
+                                                     attribute:NSLayoutAttributeHeight
+                                                     relatedBy:NSLayoutRelationEqual
+                                                        toItem:nil
+                                                     attribute:NSLayoutAttributeNotAnAttribute
+                                                    multiplier:1.0
+                                                      constant:_diameter];
+    [NSLayoutConstraint activateConstraints:@[_widthConstraint, _heightConstraint]];
+}
+
+- (void)tintColorDidChange {
+    [super tintColorDidChange];
+    self.layer.cornerRadius = _diameter * 0.5;
 }
 
 + (UIFont *)defaultFont {
     // regular, 20
     UIFontDescriptor *descriptor = [UIFontDescriptor preferredFontDescriptorWithTextStyle:UIFontTextStyleHeadline];
-    return [UIFont systemFontOfSize:[[descriptor objectForKey: UIFontDescriptorSizeAttribute] doubleValue]+3.0];
-}
-
-#pragma mark Accessibility
-
-- (UIAccessibilityTraits)accessibilityTraits {
-    return [super accessibilityTraits] | UIAccessibilityTraitAllowsDirectInteraction;
+    return [UIFont systemFontOfSize:((NSNumber *)[descriptor objectForKey:UIFontDescriptorSizeAttribute]).doubleValue + 3.0];
 }
 
 @end

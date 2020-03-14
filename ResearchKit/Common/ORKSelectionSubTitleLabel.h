@@ -28,12 +28,19 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
+@import UIKit;
 #import "ORKLabel.h"
 
+
+NS_ASSUME_NONNULL_BEGIN
+
 /**
- *  Details text in selection question's choice cell.
+ Details text in selection question's choice cell.
  */
 ORK_CLASS_AVAILABLE
 @interface ORKSelectionSubTitleLabel : ORKLabel
 
 @end
+
+NS_ASSUME_NONNULL_END

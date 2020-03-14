@@ -28,10 +28,20 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <UIKit/UIKit.h>
+
+@import UIKit;
+
+
+NS_ASSUME_NONNULL_BEGIN
+
+UIImage *ORKImageByTintingImage(UIImage *image, UIColor *tintColor, CGFloat scale);
 
 @interface ORKTintedImageView : UIImageView
 
 @property (nonatomic, assign) BOOL shouldApplyTint;
 
+@property (nonatomic, assign) BOOL enableTintedImageCaching;
+
 @end
+
+NS_ASSUME_NONNULL_END

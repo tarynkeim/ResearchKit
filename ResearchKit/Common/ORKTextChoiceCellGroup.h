@@ -28,11 +28,23 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <Foundation/Foundation.h>
-#import <ResearchKit/ResearchKit.h>
-#import "ORKChoiceViewCell.h"
+
+@import Foundation;
+@import UIKit;
 
 NS_ASSUME_NONNULL_BEGIN
+
+@class ORKChoiceViewCell;
+@class ORKTextChoiceAnswerFormat;
+
+@protocol ORKTextChoiceCellGroupDelegate <NSObject>
+
+@required
+- (void)answerChangedForIndexPath:(NSIndexPath *)indexPath;
+
+- (void)tableViewCellHeightUpdated;
+
+@end
 
 @interface ORKTextChoiceCellGroup : NSObject
 
@@ -42,6 +54,12 @@ NS_ASSUME_NONNULL_BEGIN
                            immediateNavigation:(BOOL)immediateNavigation;
 
 @property (nonatomic, strong, nullable) id answer;
+
+@property (nonatomic, weak) id<ORKTextChoiceCellGroupDelegate> delegate;
+
+@property (nonatomic, copy)  ORKTextChoiceAnswerFormat *answerFormat;
+
+- (void)textViewDidResignResponderForCellAtIndexPath:(NSIndexPath *)indexPath;
 
 - (nullable ORKChoiceViewCell *)cellAtIndexPath:(NSIndexPath *)indexPath withReuseIdentifier:(nullable NSString *)identifier;
 

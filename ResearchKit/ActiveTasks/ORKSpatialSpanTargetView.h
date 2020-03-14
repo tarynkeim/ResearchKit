@@ -28,17 +28,12 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <UIKit/UIKit.h>
-#import <ResearchKit/ResearchKit.h>
+
+@import UIKit;
+#import "ORKSpatialSpanGameState.h"
+
 
 NS_ASSUME_NONNULL_BEGIN
-
-typedef NS_ENUM(NSInteger, ORKSpatialSpanTargetState) {
-    ORKSpatialSpanTargetStateQuiescent,
-    ORKSpatialSpanTargetStateActive,
-    ORKSpatialSpanTargetStateCorrect,
-    ORKSpatialSpanTargetStateIncorrect
-};
 
 @class ORKSpatialSpanTargetView;
 
@@ -47,6 +42,7 @@ typedef NS_ENUM(NSInteger, ORKSpatialSpanTargetState) {
 - (void)targetView:(ORKSpatialSpanTargetView *)targetView recognizer:(UITapGestureRecognizer *)recognizer;
 
 @end
+
 
 @interface ORKSpatialSpanTargetView : UIView
 

@@ -28,8 +28,9 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <Foundation/Foundation.h>
-#import "ORKSpatialSpanTargetView.h"
+
+@import Foundation;
+
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -41,7 +42,17 @@ typedef NS_ENUM(NSInteger, ORKSpatialSpanResult) {
     ORKSpatialSpanResultIncorrect
 };
 
+typedef NS_ENUM(NSInteger, ORKSpatialSpanTargetState) {
+    ORKSpatialSpanTargetStateQuiescent,
+    ORKSpatialSpanTargetStateActive,
+    ORKSpatialSpanTargetStateCorrect,
+    ORKSpatialSpanTargetStateIncorrect
+};
+
 @interface ORKSpatialSpanGameState : NSObject
+
++ (instancetype)new NS_UNAVAILABLE;
+- (instancetype)init NS_UNAVAILABLE;
 
 - (instancetype)initWithGame:(ORKSpatialSpanGame *)game NS_DESIGNATED_INITIALIZER;
 

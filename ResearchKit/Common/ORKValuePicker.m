@@ -28,10 +28,15 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKValuePicker.h"
-#import "ORKResult_Private.h"
-#import "ORKChoiceAnswerFormatHelper.h"
+
 #import "ORKAnswerFormat_Internal.h"
+#import "ORKChoiceAnswerFormatHelper.h"
+#import "ORKResult_Private.h"
+
+#import "ORKAccessibilityFunctions.h"
+
 
 @interface ORKValuePicker () <UIPickerViewDataSource, UIPickerViewDelegate>
 
@@ -39,8 +44,11 @@
 
 @end
 
+static const CGFloat PickerSpacerHeight = 15.0;
+static const CGFloat PickerMinimumHeight = 34.0;
+
 @implementation ORKValuePicker {
-    UIPickerView* _pickerView;
+    UIPickerView *_pickerView;
     id _answer;
     __weak id<ORKPickerDelegate> _pickerDelegate;
 }
@@ -50,7 +58,6 @@
 - (instancetype)initWithAnswerFormat:(ORKValuePickerAnswerFormat *)answerFormat answer:(id)answer pickerDelegate:(id<ORKPickerDelegate>)delegate {
     self = [super init];
     if (self) {
-        
         NSAssert([answerFormat isKindOfClass:[ORKValuePickerAnswerFormat class]], @"answerFormat should be ORKValuePickerAnswerFormat");
         
         self.helper = [[ORKChoiceAnswerFormatHelper alloc] initWithAnswerFormat:answerFormat];
@@ -62,7 +69,6 @@
 }
 
 - (UIView *)pickerView {
-    
     if (_pickerView == nil) {
         _pickerView = [[UIPickerView alloc] init];
         _pickerView.dataSource = self;
@@ -73,12 +79,11 @@
 }
 
 - (void)setAnswer:(id)answer {
-    
     _answer = answer;
-    NSNumber *indexNumber = [_helper selectedIndexForAnswer:answer];
     
+    NSNumber *indexNumber = [_helper selectedIndexForAnswer:answer];
     if (indexNumber) {
-        [_pickerView selectRow:[indexNumber unsignedIntegerValue] inComponent:0 animated:NO];
+        [_pickerView selectRow:indexNumber.unsignedIntegerValue inComponent:0 animated:NO];
     } else {
         [_pickerView selectRow:0 inComponent:0 animated:NO];
     }
@@ -89,13 +94,12 @@
 }
 
 - (NSString *)selectedLabelText {
-    
     if ( _answer == ORKNullAnswerValue() || _answer == nil ) {
         return nil;
     }
    
     NSNumber *indexNumber = [_helper selectedIndexForAnswer:_answer];
-    NSInteger row = [indexNumber integerValue];
+    NSInteger row = indexNumber.integerValue;
     
     if (row == 0) {
         return nil;
@@ -107,6 +111,7 @@
 - (void)pickerWillAppear {
     [self pickerView];
     [self valueDidChange];
+    [self accessibilityFocusOnPickerElement];
 }
 
 - (void)valueDidChange {
@@ -114,6 +119,19 @@
     _answer = [_helper answerForSelectedIndex:row];
     if ([self.pickerDelegate respondsToSelector:@selector(picker:answerDidChangeTo:)]) {
         [self.pickerDelegate picker:self answerDidChangeTo:_answer];
+    }
+}
+
+#pragma mark - Accessibility
+
+- (void)accessibilityFocusOnPickerElement {
+    if (UIAccessibilityIsVoiceOverRunning()) {
+        ORKAccessibilityPerformBlockAfterDelay(0.75, ^{
+            NSArray *axElements = [self.pickerView accessibilityElements];
+            if ([axElements count] > 0) {
+                UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, [axElements objectAtIndex:0]);
+            }
+        });
     }
 }
 
@@ -125,19 +143,47 @@
 
 // returns the # of rows in each component..
 - (NSInteger)pickerView:(UIPickerView *)pickerView numberOfRowsInComponent:(NSInteger)component {
-    
     return _helper.choiceCount;
 }
 
 - (NSString *)pickerView:(UIPickerView *)pickerView titleForRow:(NSInteger)row forComponent:(NSInteger)component {
-    
     return [[_helper textChoiceAtIndex:row] text];
 }
 
-- (void)pickerView:(UIPickerView *)pickerView didSelectRow:(NSInteger)row inComponent:(NSInteger)component {
-    
-    [self valueDidChange];
+- (NSAttributedString *)pickerView:(UIPickerView *)pickerView attributedTitleForRow:(NSInteger)row forComponent:(NSInteger)component {
+    return [[_helper textChoiceAtIndex:row] primaryTextAttributedString];
 }
 
+- (UIView *)pickerView:(UIPickerView *)pickerView viewForRow:(NSInteger)row forComponent:(NSInteger)component reusingView:(UIView *)view
+{
+    UILabel* valueLabel = (UILabel*)view;
+    if (!valueLabel)
+    {
+        valueLabel = [[UILabel alloc] init];
+        [valueLabel setFont:[self defaultFont]];
+        [valueLabel setTextAlignment:NSTextAlignmentCenter];
+    }
+    valueLabel.text = [self pickerView:pickerView titleForRow:row forComponent:component];
+    NSAttributedString *attributedText = [self pickerView:pickerView attributedTitleForRow:row forComponent:component];
+    if (attributedText) {
+        valueLabel.attributedText = attributedText;
+    }
+    return valueLabel;
+}
+
+- (UIFont *)defaultFont {
+    UIFontDescriptor *descriptor = [UIFontDescriptor preferredFontDescriptorWithTextStyle:UIFontTextStyleBody];
+    return [UIFont systemFontOfSize:((NSNumber *)[descriptor objectForKey:UIFontDescriptorSizeAttribute]).doubleValue + 2.0];
+}
+
+- (CGFloat)pickerView:(UIPickerView *)pickerView rowHeightForComponent:(NSInteger)component {
+    UIFont *font = [self defaultFont];
+    CGFloat height =  font.pointSize + PickerSpacerHeight;
+    return (height < PickerMinimumHeight ? PickerMinimumHeight : height);
+}
+
+- (void)pickerView:(UIPickerView *)pickerView didSelectRow:(NSInteger)row inComponent:(NSInteger)component {
+    [self valueDidChange];
+}
 
 @end

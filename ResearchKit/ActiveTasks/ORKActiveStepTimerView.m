@@ -28,31 +28,37 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKActiveStepTimerView.h"
+
 #import "ORKActiveStepTimer.h"
-#import "ORKHelpers.h"
-#import "ORKSkin.h"
-#import "ORKActiveStepViewController_Internal.h"
-#import "ORKVoiceEngine.h"
+#import "ORKCountdownLabel.h"
 #import "ORKSurveyAnswerCellForText.h"
 #import "ORKSurveyAnswerCellForNumber.h"
-#import "ORKActiveStep_Internal.h"
+#import "ORKTextButton.h"
+#import "ORKVoiceEngine.h"
+
 #import "ORKActiveStepViewController_Internal.h"
 #import "ORKStepViewController_Internal.h"
 
+#import "ORKActiveStep_Internal.h"
 
-@implementation ORKActiveStepTimerView
-{
+#import "ORKHelpers_Internal.h"
+#import "ORKSkin.h"
+
+
+@implementation ORKActiveStepTimerView {
     BOOL _started;
     BOOL _registeredForNotifications;
+    
+    NSLayoutConstraint *_countDownLabelBottomToStartTimerButtonTopConstraint;
+    NSLayoutConstraint *_countDownLabelZeroHeightConstraint;
+    NSLayoutConstraint *_startTimerButtonZeroHeightConstraint;
 }
 
-- (instancetype)initWithFrame:(CGRect)frame
-{
+- (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
-    if (self)
-    {
-        
+    if (self) {
         // Count Down
         {
             _countDownLabel = [ORKCountdownLabel new];
@@ -61,10 +67,8 @@
             
             [self addSubview:_countDownLabel];
         }
-        
         // Count down start button
         {
-            
             _startTimerButton = [ORKTextButton new];
             [_startTimerButton setTitle:ORKLocalizedString(@"BUTTON_START_TIMER", nil) forState:UIControlStateNormal];
             [_startTimerButton addTarget:self action:@selector(startTimerButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
@@ -75,17 +79,16 @@
         
         _countDownLabel.accessibilityTraits |= UIAccessibilityTraitUpdatesFrequently;
         
-        [self setTranslatesAutoresizingMaskIntoConstraints:NO];
-        
-        
+        self.translatesAutoresizingMaskIntoConstraints = NO;
+        [self setUpConstraints];
     }
     return self;
 }
 
 - (void)applicationDidBecomeActive:(NSNotification *)notification {
-    ORKActiveStepViewController *vc = self.activeStepViewController;
-    if (vc) {
-        [self updateDisplay:vc];
+    ORKActiveStepViewController *viewController = self.activeStepViewController;
+    if (viewController) {
+        [self updateDisplay:viewController];
     }
 }
 
@@ -93,13 +96,13 @@
     if (registered == _registeredForNotifications) {
         return;
     }
-    
+
     registered = _registeredForNotifications;
-    NSNotificationCenter *nfc = [NSNotificationCenter defaultCenter];
+    NSNotificationCenter *notificationCenter = [NSNotificationCenter defaultCenter];
     if (registered) {
-        [nfc addObserver:self selector:@selector(applicationDidBecomeActive:) name:UIApplicationDidBecomeActiveNotification object:nil];
+        [notificationCenter addObserver:self selector:@selector(applicationDidBecomeActive:) name:UIApplicationDidBecomeActiveNotification object:nil];
     } else {
-        [nfc removeObserver:self name:UIApplicationDidBecomeActiveNotification object:nil];
+        [notificationCenter removeObserver:self name:UIApplicationDidBecomeActiveNotification object:nil];
     }
 }
 
@@ -107,9 +110,7 @@
     [self setRegisteredForNotifications:(self.window != nil)];
 }
 
-
-- (void)setStep:(ORKActiveStep *)step
-{
+- (void)setStep:(ORKActiveStep *)step {
     _step = step;
     _countDownLabel.hidden = !(_step.hasCountDown);
     BOOL hasTimerButton = (_step.hasCountDown && _step.shouldStartTimerAutomatically == NO);
@@ -121,18 +122,15 @@
     [self setNeedsUpdateConstraints];
 }
 
-- (void)startTimerButtonTapped:(id)sender
-{
+- (void)startTimerButtonTapped:(id)sender {
     [self.activeStepViewController start];
     UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, _countDownLabel);
 }
-
 
 - (void)updateDisplay:(ORKActiveStepViewController *)viewController {
     NSInteger countDownValue = (NSInteger)round(viewController.timeRemaining);
     [_countDownLabel setCountDownValue:countDownValue];
 }
-
 
 - (void)resetStep:(ORKActiveStepViewController *)viewController {
     self.step = (ORKActiveStep *)viewController.step;
@@ -147,8 +145,7 @@
 
 - (void)resumeStep:(ORKActiveStepViewController *)viewController {
     self.step = (ORKActiveStep *)viewController.step;
-    if ([viewController timerActive])
-    {
+    if ([viewController timerActive]) {
         _startTimerButton.alpha = 0;
         [self updateDisplay:viewController];
     }
@@ -157,44 +154,81 @@
 - (void)finishStep:(ORKActiveStepViewController *)viewController {
 }
 
-- (void)setNeedsUpdateConstraints
-{
-    [NSLayoutConstraint deactivateConstraints:[self constraints]];
-    [super setNeedsUpdateConstraints];
+static const CGFloat CountDownLabelToButtonMargin = 2.0;
+
+- (void)setUpConstraints {
+    NSDictionary *views = NSDictionaryOfVariableBindings(_countDownLabel, _startTimerButton);
+    ORKEnableAutoLayoutForViews(views.allValues);
     
+    NSMutableArray *constraints = [NSMutableArray new];
+    
+    for (UIView *view in views.allValues) {
+        [constraints addObject:[NSLayoutConstraint constraintWithItem:view
+                                                            attribute:NSLayoutAttributeWidth
+                                                            relatedBy:NSLayoutRelationLessThanOrEqual
+                                                               toItem:self
+                                                            attribute:NSLayoutAttributeWidth
+                                                           multiplier:1.0
+                                                             constant:0.0]];
+        [constraints addObject:[NSLayoutConstraint constraintWithItem:view
+                                                            attribute:NSLayoutAttributeCenterX
+                                                            relatedBy:NSLayoutRelationLessThanOrEqual
+                                                               toItem:self
+                                                            attribute:NSLayoutAttributeCenterX
+                                                           multiplier:1.0
+                                                             constant:0.0]];
+    }
+    
+    [constraints addObject:[NSLayoutConstraint constraintWithItem:self
+                                                        attribute:NSLayoutAttributeTop
+                                                        relatedBy:NSLayoutRelationEqual
+                                                           toItem:_countDownLabel
+                                                        attribute:NSLayoutAttributeTop
+                                                       multiplier:1.0
+                                                         constant:0.0]];
+
+    _countDownLabelBottomToStartTimerButtonTopConstraint = [NSLayoutConstraint constraintWithItem:_startTimerButton
+                                                                                        attribute:NSLayoutAttributeTop
+                                                                                        relatedBy:NSLayoutRelationEqual
+                                                                                           toItem:_countDownLabel
+                                                                                        attribute:NSLayoutAttributeBottom
+                                                                                       multiplier:1.0
+                                                                                         constant:CountDownLabelToButtonMargin];
+    [constraints addObject:_countDownLabelBottomToStartTimerButtonTopConstraint];
+
+    [constraints addObject:[NSLayoutConstraint constraintWithItem:_startTimerButton
+                                                        attribute:NSLayoutAttributeBottom
+                                                        relatedBy:NSLayoutRelationEqual
+                                                           toItem:self
+                                                        attribute:NSLayoutAttributeBottom
+                                                       multiplier:1.0
+                                                         constant:0.0]];
+
+    [NSLayoutConstraint activateConstraints:constraints];
+    
+    _countDownLabelZeroHeightConstraint = [NSLayoutConstraint constraintWithItem:_countDownLabel
+                                                                   attribute:NSLayoutAttributeHeight
+                                                                   relatedBy:NSLayoutRelationEqual
+                                                                      toItem:nil
+                                                                   attribute:NSLayoutAttributeNotAnAttribute
+                                                                  multiplier:1.0
+                                                                    constant:0.0];
+    _startTimerButtonZeroHeightConstraint = [NSLayoutConstraint constraintWithItem:_startTimerButton
+                                                                         attribute:NSLayoutAttributeHeight
+                                                                         relatedBy:NSLayoutRelationEqual
+                                                                            toItem:nil
+                                                                         attribute:NSLayoutAttributeNotAnAttribute
+                                                                        multiplier:1.0
+                                                                          constant:0.0];
+    [self setNeedsUpdateConstraints];
 }
 
-- (void)updateConstraints
-{
-    NSDictionary *dictionary = NSDictionaryOfVariableBindings(_countDownLabel, _startTimerButton);
-    NSDictionary *metrics = @{@"CS" : @(2)};
-    ORKEnableAutoLayoutForViews([dictionary allValues]);
-    
-    for (UIView *v in [dictionary allValues])
-    {
-        [self addConstraint:[NSLayoutConstraint constraintWithItem:v attribute:NSLayoutAttributeWidth relatedBy:NSLayoutRelationLessThanOrEqual toItem:self attribute:NSLayoutAttributeWidth multiplier:1 constant:0]];
-        [self addConstraint:[NSLayoutConstraint constraintWithItem:v attribute:NSLayoutAttributeCenterX relatedBy:NSLayoutRelationLessThanOrEqual toItem:self attribute:NSLayoutAttributeCenterX multiplier:1 constant:0]];
-    }
-    
-    if (! _countDownLabel.hidden)
-    {
-        NSMutableString *verticalLayout = [NSMutableString new];
-        [verticalLayout appendString:@"V:|[_countDownLabel]"];
-        if (! _startTimerButton.hidden)
-        {
-            [verticalLayout appendString:@"-CS-[_startTimerButton]"];
-        }
-        [verticalLayout appendString:@"|"];
-        [self addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:verticalLayout options:NSLayoutFormatAlignAllCenterX metrics:metrics views:dictionary]];
-    }
-    else
-    {
-        [self addConstraint:[NSLayoutConstraint constraintWithItem:self attribute:NSLayoutAttributeHeight relatedBy:NSLayoutRelationEqual toItem:nil attribute:NSLayoutAttributeNotAnAttribute multiplier:1 constant:0]];
-    }
-    
+- (void)updateConstraints {
+    _countDownLabelZeroHeightConstraint.active = _countDownLabel.hidden;
+    _startTimerButtonZeroHeightConstraint.active = (_countDownLabel.hidden || _startTimerButton.hidden);
+    _countDownLabelBottomToStartTimerButtonTopConstraint.constant =
+    (_countDownLabel.hidden || _startTimerButton.hidden) ? 0.0 : CountDownLabelToButtonMargin;
     [super updateConstraints];
 }
 
-
 @end
-

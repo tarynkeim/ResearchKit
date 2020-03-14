@@ -28,12 +28,16 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <UIKit/UIKit.h>
+
+@import UIKit;
 #import "ORKDefaultFont.h"
-#import "ORKDefines_Private.h"
+#import <ResearchKit/ORKDefines.h>
+
+
+NS_ASSUME_NONNULL_BEGIN
 
 /**
- *  This is a base class, not being used directly.
+ This is a base class, not being used directly.
  */
 ORK_CLASS_AVAILABLE
 @interface ORKLabel : UILabel <ORKDefaultFont>
@@ -47,3 +51,5 @@ ORK_CLASS_AVAILABLE
 - (void)updateAppearance;
 
 @end
+
+NS_ASSUME_NONNULL_END

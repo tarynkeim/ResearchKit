@@ -29,7 +29,12 @@
  */
 
 
-#import <ResearchKit/ResearchKit.h>
+@import UIKit;
+#import <ResearchKit/ORKDefines.h>
+#import <ResearchKit/ORKStepViewController.h>
+
+
+NS_ASSUME_NONNULL_BEGIN
 
 /**
  An `ORKInstructionStepViewController` object is the view controller for an `ORKInstructionStep` object.
@@ -38,9 +43,12 @@
  Instead, add an instruction step to a task and present the task using a
  task view controller. When appropriate, the task view controller instantiates the step
  view controller for the step.
- 
  */
 ORK_CLASS_AVAILABLE
 @interface ORKInstructionStepViewController : ORKStepViewController
 
+- (void)buildInNextBodyItem;
+
 @end
+
+NS_ASSUME_NONNULL_END

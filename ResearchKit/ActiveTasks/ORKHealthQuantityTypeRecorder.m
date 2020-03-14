@@ -28,55 +28,69 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKHealthQuantityTypeRecorder.h"
-#import "ORKHelpers.h"
+#import "ORKHelpers_Internal.h"
 #import "ORKDataLogger.h"
 #import "ORKRecorder_Private.h"
 #import "ORKRecorder_Internal.h"
 #import "HKSample+ORKJSONDictionary.h"
 
-@interface ORKHealthQuantityTypeRecorder()
-{
+
+@interface ORKHealthQuantityTypeRecorder () {
     ORKDataLogger *_logger;
     BOOL _isRecording;
     HKHealthStore *_healthStore;
     NSPredicate *_samplePredicate;
     HKObserverQuery *_observerQuery;
-    NSInteger _anchor;
+    /// Either the HKQueryAnchor object *or* NSUInteger value are tracked since the initializer for
+    /// iOS 8 and iOS 9 use different objects. Only one will actually be referenced in the initalizer.
+    HKQueryAnchor *_anchor;
+    NSUInteger _anchorValue;
     HKQuantitySample *_lastSample;
 }
 
 @end
 
+#ifdef __IPHONE_10_0
+/// Add a protocol defining the initializer for iOS 8 apps. This signature was deprecated in iOS 9
+/// and deleted in iOS 10.
+@interface HKAnchoredObjectQuery (iOS8)
+- (instancetype)initWithType:(HKSampleType *)type
+                   predicate:(NSPredicate *)predicate
+                      anchor:(NSUInteger)anchor
+                       limit:(NSUInteger)limit
+           completionHandler:(void (^)(HKAnchoredObjectQuery *query,
+                                       NSArray<__kindof HKSample *> *results,
+                                       NSUInteger newAnchor,
+                                       NSError *error))handler NS_DEPRECATED_IOS(8_0, 9_0);
+@end
+#endif
 
 @implementation ORKHealthQuantityTypeRecorder
-
 
 - (instancetype)initWithIdentifier:(NSString *)identifier
                 healthQuantityType:(HKQuantityType *)quantityType
                               unit:(HKUnit *)unit
                               step:(ORKStep *)step
-                   outputDirectory:(NSURL *)outputDirectory
-{
+                   outputDirectory:(NSURL *)outputDirectory {
     self = [super initWithIdentifier:identifier
                                 step:step
                      outputDirectory:outputDirectory];
-    if (self)
-    {
+    if (self) {
         NSParameterAssert(quantityType != nil);
         NSParameterAssert(unit != nil);
         // Quantity type and unit are immutable, so should be equivalent to -copy
         _quantityType = quantityType;
         _unit = unit;
         self.continuesInBackground = YES;
-        _anchor = HKAnchoredObjectQueryNoAnchor;
+        _anchorValue = HKAnchoredObjectQueryNoAnchor;
+        _anchor = [HKQueryAnchor anchorFromValue:_anchorValue];
     }
     return self;
 }
 
-
-- (void)dealloc
-{
+- (void)dealloc {
     [_logger finishCurrentLog];
 }
 
@@ -89,14 +103,13 @@
     if (delegate && [delegate respondsToSelector:@selector(healthQuantityTypeRecorderDidUpdate:)]) {
         [delegate healthQuantityTypeRecorderDidUpdate:self];
     }
-    
 }
 
 static const NSInteger _HealthAnchoredQueryLimit = 100;
 
-- (void)query_logResults:(NSArray *)results withAnchor:(NSUInteger)newAnchor {
+- (void)query_logResults:(NSArray *)results withAnchor:(HKQueryAnchor*)newAnchor anchorValue:(NSUInteger)anchorValue {
     
-    NSUInteger resultCount = [results count];
+    NSUInteger resultCount = results.count;
     if (resultCount == 0) {
         return;
     }
@@ -108,72 +121,88 @@ static const NSInteger _HealthAnchoredQueryLimit = 100;
     }];
     
     dispatch_async(dispatch_get_main_queue(), ^{
-        [self updateMostRecentSample:[results lastObject]];
+        [self updateMostRecentSample:results.lastObject];
         
         NSError *error = nil;
-        if (! [_logger appendObjects:dictionaries error:&error]) {
+        if (![_logger appendObjects:dictionaries error:&error]) {
             // Logger writes are unrecoverable
             [self finishRecordingWithError:error];
             return;
         }
         
         _anchor = newAnchor;
+        _anchorValue = anchorValue;
         
         if (resultCount == _HealthAnchoredQueryLimit) {
             // Do another fetch immediately rather than wait for an observation
             [self doFetchNewData];
         }
-        
     });
-    
 }
 
-
 - (void)doFetchNewData {
-    if (! _healthStore || ! _isRecording) {
+    if (!_healthStore || !_isRecording) {
         return;
     }
     NSAssert(_samplePredicate != nil, @"Sample predicate should be non-nil if recording");
     
-    
     __weak typeof(self) weakSelf = self;
-    HKAnchoredObjectQuery *anchoredQuery = [[HKAnchoredObjectQuery alloc]
-                                            initWithType:_quantityType
-                                            predicate:_samplePredicate
-                                            anchor:_anchor
-                                            limit:_HealthAnchoredQueryLimit
-                                            completionHandler:^(HKAnchoredObjectQuery *query, NSArray *results, NSUInteger newAnchor, NSError *error)
-                                            {
-                                                if (error) {
-                                                    // An error in the query's not the end of the world: we'll probably get another chance. Just log it.
-                                                    ORK_Log_Debug(@"Anchored query error: %@", error);
-                                                    return;
-                                                }
-                                                
-                                                __typeof(self) strongSelf = weakSelf;
-                                                [strongSelf query_logResults:results withAnchor:newAnchor];
-                                                
-                                            }];
+    void (^handleResults)(NSArray <__kindof HKSample *> *, HKQueryAnchor *, NSUInteger, NSError *) = ^ (NSArray *results, HKQueryAnchor *newAnchor, NSUInteger newAnchorValue, NSError *error) {
+        if (error) {
+            // An error in the query's not the end of the world: we'll probably get another chance. Just log it.
+            ORK_Log_Error("Anchored query error: %@", error);
+            return;
+        }
+        
+        __typeof(self) strongSelf = weakSelf;
+        [strongSelf query_logResults:results withAnchor:newAnchor anchorValue:newAnchorValue];
+    };
+    
+    
+    HKAnchoredObjectQuery *anchoredQuery;
+    if ([HKAnchoredObjectQuery instancesRespondToSelector:@selector(initWithType:predicate:anchor:limit:resultsHandler:)]) {
+        
+        anchoredQuery = [[HKAnchoredObjectQuery alloc] initWithType:_quantityType
+                                                          predicate:_samplePredicate
+                                                             anchor:_anchor
+                                                              limit:_HealthAnchoredQueryLimit
+                                                     resultsHandler:
+                         ^(HKAnchoredObjectQuery *query, NSArray *sampleObjects, NSArray *deletedObjects, HKQueryAnchor *newAnchor, NSError *error) {
+                             handleResults(sampleObjects, newAnchor, 0, error);
+                         }];
+    } else if ([HKAnchoredObjectQuery instancesRespondToSelector:@selector(initWithType:predicate:anchor:limit:completionHandler:)]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        anchoredQuery = [[HKAnchoredObjectQuery alloc] initWithType:_quantityType
+                                                          predicate:_samplePredicate
+                                                             anchor:_anchorValue
+                                                              limit:_HealthAnchoredQueryLimit
+                                                  completionHandler:
+                         ^(HKAnchoredObjectQuery *query, NSArray<__kindof HKSample *> *results, NSUInteger newAnchor, NSError *error) {
+                             handleResults(results, nil, newAnchor, error);
+                         }];
+#pragma clang diagnostic pop
+    }
+    else {
+        NSAssert(NO, @"Could not instantiate an HKAnchoredObjectQuery.");
+    }
+
     [_healthStore executeQuery:anchoredQuery];
 }
 
-
 - (void)start {
-    
     [super start];
     
-    
-    if (! _logger) {
-        NSError *err = nil;
-        _logger = [self makeJSONDataLoggerWithError:&err];
-        if (! _logger) {
-            [self finishRecordingWithError:err];
+    if (!_logger) {
+        NSError *error = nil;
+        _logger = [self makeJSONDataLoggerWithError:&error];
+        if (!_logger) {
+            [self finishRecordingWithError:error];
             return;
         }
     }
     
-    if (! [HKHealthStore isHealthDataAvailable])
-    {
+    if (![HKHealthStore isHealthDataAvailable]) {
         [self finishRecordingWithError:[NSError errorWithDomain:NSCocoaErrorDomain
                                                            code:NSFeatureUnsupportedError
                                                        userInfo:@{@"recorder" : self}]];
@@ -190,16 +219,6 @@ static const NSInteger _HealthAnchoredQueryLimit = 100;
             _observerQuery = nil;
         }
     }
-    
-    [_healthStore enableBackgroundDeliveryForType:_quantityType
-                                        frequency:HKUpdateFrequencyImmediate
-                                   withCompletion:^(BOOL success, NSError *error) {
-                                       
-                                       // Doesn't really matter if this succeeds, but nice if it does.
-                                       if (! success) {
-                                           ORK_Log_Debug(@"Failed to enable background delivery: %@", error);
-                                       }
-                                   }];
     
     _lastSample = nil;
     _samplePredicate = [HKQuery predicateForSamplesWithStartDate:[NSDate date] endDate:nil options:HKQueryOptionStrictStartDate];
@@ -230,15 +249,12 @@ static const NSInteger _HealthAnchoredQueryLimit = 100;
     [_healthStore executeQuery:_observerQuery];
 }
 
-
-- (NSString *)recorderType
-{
+- (NSString *)recorderType {
     return _quantityType.identifier;
 }
 
-
 - (void)stop {
-    if (! _isRecording) {
+    if (!_isRecording) {
         return;
     }
     
@@ -251,14 +267,12 @@ static const NSInteger _HealthAnchoredQueryLimit = 100;
         fileUrl = logFileUrl;
     } error:&error];
     
-    
     [self reportFileResultWithFile:fileUrl error:error];
     
     [super stop];
 }
 
-- (void)doStopRecording
-{
+- (void)doStopRecording {
     if (_isRecording) {
         NSAssert(_observerQuery != nil, @"Observer query should be non-nil when recording");
         [_healthStore stopQuery:_observerQuery];
@@ -271,8 +285,7 @@ static const NSInteger _HealthAnchoredQueryLimit = 100;
     }
 }
 
-- (void)finishRecordingWithError:(NSError *)error
-{
+- (void)finishRecordingWithError:(NSError *)error {
     [self doStopRecording];
     [super finishRecordingWithError:error];
 }
@@ -285,8 +298,7 @@ static const NSInteger _HealthAnchoredQueryLimit = 100;
     return @"application/json";
 }
 
-- (void)reset
-{
+- (void)reset {
     [super reset];
     
     _logger = nil;
@@ -294,14 +306,11 @@ static const NSInteger _HealthAnchoredQueryLimit = 100;
 
 @end
 
-@interface ORKHealthQuantityTypeRecorderConfiguration()
-@end
 
 @implementation ORKHealthQuantityTypeRecorderConfiguration
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wobjc-designated-initializers"
-
 - (instancetype)initWithIdentifier:(NSString *)identifier {
     @throw [NSException exceptionWithName:NSGenericException reason:@"Use subclass designated initializer" userInfo:nil];
 }
@@ -317,11 +326,9 @@ static const NSInteger _HealthAnchoredQueryLimit = 100;
     }
     return self;
 }
-
 #pragma clang diagnostic pop
 
-- (ORKRecorder *)recorderForStep:(ORKStep *)step outputDirectory:(NSURL *)outputDirectory
-{
+- (ORKRecorder *)recorderForStep:(ORKStep *)step outputDirectory:(NSURL *)outputDirectory {
     return [[ORKHealthQuantityTypeRecorder alloc] initWithIdentifier:self.identifier
                                                   healthQuantityType:_quantityType
                                                                 unit:_unit
@@ -329,25 +336,21 @@ static const NSInteger _HealthAnchoredQueryLimit = 100;
                                                      outputDirectory:outputDirectory];
 }
 
-- (instancetype)initWithCoder:(NSCoder *)aDecoder
-{
+- (instancetype)initWithCoder:(NSCoder *)aDecoder {
     self = [super initWithCoder:aDecoder];
-    if (self)
-    {
+    if (self) {
         ORK_DECODE_OBJ_CLASS(aDecoder, quantityType, HKQuantityType);
         ORK_DECODE_OBJ_CLASS(aDecoder, unit, HKUnit);
     }
     return self;
 }
 
-- (void)encodeWithCoder:(NSCoder *)aCoder
-{
+- (void)encodeWithCoder:(NSCoder *)aCoder {
     ORK_ENCODE_OBJ(aCoder, quantityType);
     ORK_ENCODE_OBJ(aCoder, unit);
 }
 
-+ (BOOL)supportsSecureCoding
-{
++ (BOOL)supportsSecureCoding {
     return YES;
 }
 
@@ -357,9 +360,8 @@ static const NSInteger _HealthAnchoredQueryLimit = 100;
     __typeof(self) castObject = object;
     return (isParentSame &&
             ORKEqualObjects(self.quantityType, castObject.quantityType)&&
-            ORKEqualObjects(self.unit, castObject.unit)) ;
+            ORKEqualObjects(self.unit, castObject.unit));
 }
-
 
 - (NSSet *)requestedHealthKitTypesForReading {
     return [NSSet setWithObject:_quantityType];

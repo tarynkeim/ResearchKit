@@ -28,8 +28,12 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKSpatialSpanGameState.h"
+
 #import "ORKSpatialSpanGame.h"
+
+#import "ORKHelpers_Internal.h"
 
 
 @implementation ORKSpatialSpanGameState {
@@ -37,6 +41,13 @@
     ORKSpatialSpanTargetState *_states;
 }
 
++ (instancetype)new {
+    ORKThrowMethodUnavailableException();
+}
+
+- (instancetype)init {
+    ORKThrowMethodUnavailableException();
+}
 
 - (instancetype)initWithGame:(ORKSpatialSpanGame *)game {
     self = [super init];
@@ -58,7 +69,6 @@
         _states = NULL;
     }
 }
-
 
 - (void)reset {
     const NSInteger gameSize = [_game gameSize];
@@ -85,29 +95,28 @@
         return ORKSpatialSpanResultIgnore;
     }
     
-    NSInteger sequencePosition = [_plays count];
+    NSInteger sequencePosition = _plays.count;
     BOOL correct = ([_game tileIndexForStep:sequencePosition] == tileIndex);
     _states[tileIndex] = correct ? ORKSpatialSpanTargetStateCorrect : ORKSpatialSpanTargetStateIncorrect;
     if (correct) {
         [_plays addObject:@(tileIndex)];
     }
-    if ([_plays count] >= [_game sequenceLength]) {
+    if (_plays.count >= [_game sequenceLength]) {
         _complete = YES;
     }
     
     return correct ? ORKSpatialSpanResultCorrect : ORKSpatialSpanResultIncorrect;
 }
 
-
 - (NSInteger)currentStepIndex {
-    return [_plays count];
+    return _plays.count;
 }
 
 - (NSInteger)lastSuccessfulTileIndex {
-    if (! [_plays count]) {
+    if (!_plays.count) {
         return NSNotFound;
     }
-    return [[_plays lastObject] integerValue];
+    return ((NSNumber *)_plays.lastObject).integerValue;
 }
 
 @end

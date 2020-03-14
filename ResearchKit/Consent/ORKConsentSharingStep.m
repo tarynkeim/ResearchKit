@@ -28,20 +28,21 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKConsentSharingStep.h"
+
 #import "ORKConsentSharingStepViewController.h"
-#import "ORKHelpers.h"
+
 #import "ORKStep_Private.h"
+
+#import "ORKAnswerFormat.h"
+#import "ORKHelpers_Internal.h"
 
 
 @implementation ORKConsentSharingStep
 
-+(Class)stepViewControllerClass {
++ (Class)stepViewControllerClass {
     return [ORKConsentSharingStepViewController class];
-}
-
-- (BOOL)showsProgress {
-    return NO;
 }
 
 - (BOOL)useSurveyMode {
@@ -51,38 +52,32 @@
 - (instancetype)initWithIdentifier:(NSString *)identifier
       investigatorShortDescription:(NSString *)investigatorShortDescription
        investigatorLongDescription:(NSString *)investigatorLongDescription
-     localizedLearnMoreHTMLContent:(NSString *)localizedLearnMoreHTMLContent
-{
+     localizedLearnMoreHTMLContent:(NSString *)localizedLearnMoreHTMLContent {
     self = [super initWithIdentifier:identifier];
     if (self) {
-        if ( [investigatorShortDescription length] == 0 )
-        {
+        if ( investigatorShortDescription.length == 0 ) {
             @throw [NSException exceptionWithName:NSInvalidArgumentException reason:@"investigatorShortDescription should not be empty." userInfo:nil];
         }
-        if ( [investigatorLongDescription length] == 0 )
-        {
+        if ( investigatorLongDescription.length == 0 ) {
             @throw [NSException exceptionWithName:NSInvalidArgumentException reason:@"investigatorLongDescription should not be empty." userInfo:nil];
         }
-        if ( [localizedLearnMoreHTMLContent length] == 0 )
-        {
+        if ( localizedLearnMoreHTMLContent.length == 0 ) {
             @throw [NSException exceptionWithName:NSInvalidArgumentException reason:@"localizedLearnMoreHTMLContent should not be empty." userInfo:nil];
         }
         
         self.answerFormat = [ORKAnswerFormat choiceAnswerFormatWithStyle:ORKChoiceAnswerStyleSingleChoice textChoices:
-                             @[[ORKTextChoice choiceWithText:[NSString stringWithFormat:ORKLocalizedString(@"CONSENT_SHARE_WIDELY_%@",nil), investigatorShortDescription] detailText:nil value:@(YES)],
-                               [ORKTextChoice choiceWithText:[NSString stringWithFormat:ORKLocalizedString(@"CONSENT_SHARE_ONLY_%@",nil), investigatorLongDescription] detailText:nil value:@(NO)],
+                             @[[ORKTextChoice choiceWithText:[NSString localizedStringWithFormat:ORKLocalizedString(@"CONSENT_SHARE_WIDELY_%@", nil), investigatorShortDescription] value:@(YES)],
+                               [ORKTextChoice choiceWithText:[NSString localizedStringWithFormat:ORKLocalizedString(@"CONSENT_SHARE_ONLY_%@", nil), investigatorLongDescription] value:@(NO)],
                                ]];
         self.optional = NO;
         self.useSurveyMode = NO;
         self.title = ORKLocalizedString(@"CONSENT_SHARING_TITLE", nil);
-        self.text = [NSString stringWithFormat:ORKLocalizedString(@"CONSENT_SHARING_DESCRIPTION_%@", nil), investigatorLongDescription];
-        
+        self.text = [NSString localizedStringWithFormat:ORKLocalizedString(@"CONSENT_SHARING_DESCRIPTION_%@", nil), investigatorLongDescription];
+        self.showsProgress = NO;
         self.localizedLearnMoreHTMLContent = localizedLearnMoreHTMLContent;
     }
     return self;
 }
-
-
 
 - (BOOL)isEqual:(id)object {
     BOOL isParentSame = [super isEqual:object];
@@ -92,25 +87,21 @@
     ORKEqualObjects(self.localizedLearnMoreHTMLContent, castObject.localizedLearnMoreHTMLContent);
 }
 
-- (instancetype)copyWithZone:(NSZone *)zone
-{
+- (instancetype)copyWithZone:(NSZone *)zone {
     ORKConsentSharingStep *step = [super copyWithZone:zone];
     step.localizedLearnMoreHTMLContent = self.localizedLearnMoreHTMLContent;
     return step;
 }
 
-- (instancetype)initWithCoder:(NSCoder *)aDecoder
-{
+- (instancetype)initWithCoder:(NSCoder *)aDecoder {
     self = [super initWithCoder:aDecoder];
-    if (self)
-    {
+    if (self) {
         ORK_DECODE_OBJ_CLASS(aDecoder, localizedLearnMoreHTMLContent, NSString);
     }
     return self;
 }
 
-- (void)encodeWithCoder:(NSCoder *)aCoder
-{
+- (void)encodeWithCoder:(NSCoder *)aCoder {
     [super encodeWithCoder:aCoder];
     
     ORK_ENCODE_OBJ(aCoder, localizedLearnMoreHTMLContent);

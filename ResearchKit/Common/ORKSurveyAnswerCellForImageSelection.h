@@ -28,8 +28,15 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
+@import UIKit;
 #import "ORKSurveyAnswerCell.h"
+
+
+NS_ASSUME_NONNULL_BEGIN
 
 @interface ORKSurveyAnswerCellForImageSelection : ORKSurveyAnswerCell
 
 @end
+
+NS_ASSUME_NONNULL_END

@@ -32,40 +32,41 @@
 
 #import "ORKRecorder.h"
 #import "ORKRecorder_Internal.h"
-#import "ORKRecorder_Private.h"
-#import "ORKHelpers.h"
+
 #import "ORKDataLogger.h"
-#import "ORKDefines_Private.h"
+#import "ORKFileResult.h"
+
+#import "ORKHelpers_Internal.h"
+
 
 @implementation ORKRecorderConfiguration
 
++ (instancetype)new {
+    ORKThrowMethodUnavailableException();
+}
+
+- (instancetype)init {
+    ORKThrowMethodUnavailableException();
+}
+
 - (instancetype)initWithIdentifier:(NSString *)identifier {
-    
     self = [super init];
-    if (self)
-    {
-        if (nil == identifier)
-        {
-            @throw [NSException exceptionWithName:NSInvalidArgumentException reason:@"identifier cannot be nil." userInfo:nil];
-        }
-        
+    if (self) {
+        ORKThrowInvalidArgumentExceptionIfNil(identifier);
         _identifier = [identifier copy];
     }
     return self;
 }
 
-- (instancetype)initWithCoder:(NSCoder *)aDecoder
-{
+- (instancetype)initWithCoder:(NSCoder *)aDecoder {
     self = [super init];
-    if (self)
-    {
+    if (self) {
         ORK_DECODE_OBJ_CLASS(aDecoder, identifier, NSString);
     }
     return self;
 }
 
-- (void)encodeWithCoder:(NSCoder *)aCoder
-{
+- (void)encodeWithCoder:(NSCoder *)aCoder {
     ORK_ENCODE_OBJ(aCoder, identifier);
 }
 
@@ -73,7 +74,6 @@
     if ([self class] != [object class]) {
         return NO;
     }
-    
     return YES;
 }
 
@@ -81,45 +81,41 @@
     return 0;
 }
 
-+ (BOOL)supportsSecureCoding
-{
++ (BOOL)supportsSecureCoding {
     return YES;
 }
 
-- (ORKRecorder *)recorderForStep:(ORKStep *)step outputDirectory:(NSURL *)outputDirectory
-{
+- (ORKRecorder *)recorderForStep:(ORKStep *)step outputDirectory:(NSURL *)outputDirectory {
     return nil;
 }
 
-
-- (NSSet *)requestedHealthKitTypesForReading {
+- (NSSet<HKObjectType *> *)requestedHealthKitTypesForReading {
     return nil;
 }
 - (ORKPermissionMask)requestedPermissionMask {
     return ORKPermissionNone;
 }
 
-
 @end
 
-@implementation ORKRecorder
-{
+
+@implementation ORKRecorder {
     UIBackgroundTaskIdentifier _backgroundTask;
     NSUUID *_recorderUUID;
 }
 
-- (instancetype)init
-{
++ (instancetype)new {
+    ORKThrowMethodUnavailableException();
+}
+
+- (instancetype)init {
     @throw [NSException exceptionWithName:NSGenericException reason:@"Use designated initializer" userInfo:nil];
 }
 
-- (instancetype)initWithIdentifier:(NSString *)identifier step:(ORKStep *)step outputDirectory:(NSURL *)outputDirectory;
-{
+- (instancetype)initWithIdentifier:(NSString *)identifier step:(ORKStep *)step outputDirectory:(NSURL *)outputDirectory {
     self = [super init];
-    if (self)
-    {
-        if (nil == identifier)
-        {
+    if (self) {
+        if (nil == identifier) {
             @throw [NSException exceptionWithName:NSInvalidArgumentException reason:@"identifier cannot be nil." userInfo:nil];
         }
         
@@ -133,104 +129,83 @@
 }
 
 - (void)viewController:(UIViewController *)viewController willStartStepWithView:(UIView *)view {
-
 }
 
-- (void)start
-{
-    if (self.continuesInBackground)
-    {
+- (void)start {
+    if (self.continuesInBackground) {
         UIApplication *app = [UIApplication sharedApplication];
         UIBackgroundTaskIdentifier oldTask = _backgroundTask;
-        _backgroundTask = [app beginBackgroundTaskWithName:[NSString stringWithFormat:@"%@.%p",NSStringFromClass([self class]),self] expirationHandler:^{
+        _backgroundTask = [app beginBackgroundTaskWithName:[NSString stringWithFormat:@"%@.%p",NSStringFromClass([self class]),self]
+                                         expirationHandler:^{
             [self stop];
         }];
-        if (oldTask != NSNotFound)
-        {
+        if (oldTask != NSNotFound) {
             [app endBackgroundTask:oldTask];
         }
     }
-    
     self.startDate = [NSDate date];
 }
 
-
-- (void)stop
-{
+- (void)stop {
     [self finishRecordingWithError:nil];
     [self reset];
 }
 
-
-- (void)finishRecordingWithError:(NSError *)error
-{
+- (void)finishRecordingWithError:(NSError *)error {
     // NOTE. This method may be called multiple times (once when someone tries
     // to finish, and another time with -stop is actually called.
     
-    
-    if (error)
-    {
+    if (error) {
         // ALWAYS report errors to the delegate, even if we think we're finished already
-        
         id<ORKRecorderDelegate> localDelegate = self.delegate;
-        if (localDelegate && [localDelegate respondsToSelector:@selector(recorder:didFailWithError:)])
-        {
+        if (localDelegate && [localDelegate respondsToSelector:@selector(recorder:didFailWithError:)]) {
             [localDelegate recorder:self didFailWithError:error];
         }
-        
         [self reset];
     }
     
-    
-    if (_backgroundTask != NSNotFound)
-    {
+    if (_backgroundTask != NSNotFound) {
         // End the background task asynchronously, so whatever we're doing cleaning up the recorder has a chance to complete.
-        UIBackgroundTaskIdentifier ident = _backgroundTask;
+        UIBackgroundTaskIdentifier identifier = _backgroundTask;
         _backgroundTask = NSNotFound;
         
         // Hold the background task for a little extra to give time for the next step to kick in,
         // if it is an automatic transition.
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            [[UIApplication sharedApplication] endBackgroundTask:ident];
+            [[UIApplication sharedApplication] endBackgroundTask:identifier];
         });
     }
-    
 }
 
-- (NSURL *)recordingDirectoryURL
-{
-    if (! _outputDirectory) {
+- (NSURL *)recordingDirectoryURL {
+    if (!_outputDirectory) {
         return nil;
     }
-    
-    return [NSURL fileURLWithPath:[_outputDirectory.path stringByAppendingPathComponent:[NSString stringWithFormat:@"recorder-%@",[_recorderUUID UUIDString]]]];
+    return [NSURL fileURLWithPath:[_outputDirectory.path stringByAppendingPathComponent:[NSString stringWithFormat:@"recorder-%@", _recorderUUID.UUIDString]]];
 }
 
-- (NSString *)recorderType
-{
+- (NSString *)recorderType {
     return @"recorder";
 }
 
-- (NSString *)logName
-{
-    return [NSString stringWithFormat:@"%@_%@", [self recorderType],self.identifier];
+- (NSString *)logName {
+    return [NSString stringWithFormat:@"%@_%@", [self recorderType], _recorderUUID.UUIDString];
 }
 
-- (ORKDataLogger *)makeJSONDataLoggerWithError:(NSError * __autoreleasing *)error
-{
+- (ORKDataLogger *)makeJSONDataLoggerWithError:(NSError **)errorOut {
     NSURL *workingDir = [self recordingDirectoryURL];
-    if (! workingDir) {
-        if (error) {
-            *error = [NSError errorWithDomain:NSCocoaErrorDomain code:NSFileWriteInvalidFileNameError userInfo:@{NSLocalizedDescriptionKey:ORKLocalizedString(@"ERROR_RECORDER_NO_OUTPUT_DIRECTORY", nil)}];
+    if (!workingDir) {
+        if (errorOut != NULL) {
+            *errorOut = [NSError errorWithDomain:NSCocoaErrorDomain code:NSFileWriteInvalidFileNameError userInfo:@{NSLocalizedDescriptionKey:ORKLocalizedString(@"ERROR_RECORDER_NO_OUTPUT_DIRECTORY", nil)}];
         }
         return nil;
     }
-    if (![[NSFileManager defaultManager] createDirectoryAtURL:workingDir withIntermediateDirectories:YES attributes:nil error:error]) {
+    if (![[NSFileManager defaultManager] createDirectoryAtURL:workingDir withIntermediateDirectories:YES attributes:nil error:errorOut]) {
         return nil;
     }
     
-    NSString *ident = [self logName];
-    NSString *logName = [ident stringByReplacingOccurrencesOfString:@"-" withString:@"_"];
+    NSString *identifier = [self logName];
+    NSString *logName = [identifier stringByReplacingOccurrencesOfString:@"-" withString:@"_"];
     
     // Class B data protection for temporary file during active task logging.
     ORKDataLogger *logger = [[ORKDataLogger alloc] initWithDirectory:workingDir logName:logName formatter:[ORKJSONLogFormatter new] delegate:nil];
@@ -239,8 +214,7 @@
     return logger;
 }
 
-- (void)reset
-{
+- (void)reset {
     _recorderUUID = [NSUUID UUID];
 }
 
@@ -253,10 +227,10 @@
 }
 
 - (void)applyFileProtection:(ORKFileProtectionMode)fileProtection toFileAtURL:(NSURL *)url {
-    NSFileManager *fm = [NSFileManager defaultManager];
+    NSFileManager *fileManager = [NSFileManager defaultManager];
     NSError *error = nil;
-    if (!  [fm setAttributes:@{NSFileProtectionKey : ORKFileProtectionFromMode(fileProtection)} ofItemAtPath:[url path] error:&error]) {
-        ORK_Log_Debug(@"Error setting %@ on %@: %@", ORKFileProtectionFromMode(fileProtection), url, error);
+    if (! [fileManager setAttributes:@{NSFileProtectionKey: ORKFileProtectionFromMode(fileProtection)} ofItemAtPath:[url path] error:&error]) {
+        ORK_Log_Error("Error setting %@ on %@: %@", ORKFileProtectionFromMode(fileProtection), url, error);
     }
 }
 
@@ -268,7 +242,7 @@
             ORKFileResult *result = [[ORKFileResult alloc] initWithIdentifier:self.identifier];
             result.contentType = [self mimeType];
             result.fileURL = fileUrl;
-            result.userInfo = [self userInfo];
+            result.userInfo = self.userInfo;
             result.startDate = self.startDate;
             
             [localDelegate recorder:self didCompleteWithResult:result];
@@ -277,8 +251,7 @@
             [self reset];
         }
     } else {
-        if (! error)
-        {
+        if (!error) {
             error = [NSError errorWithDomain:NSCocoaErrorDomain
                                         code:NSFileReadNoSuchFileError
                                     userInfo:@{NSLocalizedDescriptionKey:ORKLocalizedString(@"ERROR_RECORDER_NO_DATA", nil)}];
@@ -288,4 +261,3 @@
 }
 
 @end
-

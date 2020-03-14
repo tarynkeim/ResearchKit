@@ -29,8 +29,8 @@
  */
 
 
-#import <CoreMotion/CoreMotion.h>
-#import <ResearchKit/ResearchKit.h>
+@import CoreMotion;
+
 
 NS_ASSUME_NONNULL_BEGIN
 

@@ -28,10 +28,15 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
+@import UIKit;
 #import "ORKLabel.h"
 
+
+NS_ASSUME_NONNULL_BEGIN
+
 /**
- *  Primary title for any step view controller.
+ Primary title for any step view controller.
  */
 ORK_CLASS_AVAILABLE
 @interface ORKHeadlineLabel : ORKLabel
@@ -39,3 +44,5 @@ ORK_CLASS_AVAILABLE
 @property (nonatomic, assign) BOOL useSurveyMode;
 
 @end
+
+NS_ASSUME_NONNULL_END

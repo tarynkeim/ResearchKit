@@ -29,13 +29,14 @@
  */
 
 
-#import <ResearchKit/ResearchKit.h>
-#import <HealthKit/HealthKit.h>
-#import <ResearchKit/ORKAnswerFormat.h>
+@import HealthKit;
+#import "ORKAnswerFormat_Private.h"
+#import "ORKChoiceAnswerFormatHelper.h"
+
 
 NS_ASSUME_NONNULL_BEGIN
 
-id ORKNullAnswerValue();
+BOOL ORKIsAnswerEmpty(_Nullable id answer);
 
 NSString *ORKHKBiologicalSexString(HKBiologicalSex biologicalSex);
 NSString *ORKHKBloodTypeString(HKBloodType bloodType);
@@ -47,43 +48,50 @@ NSString *ORKQuestionTypeString(ORKQuestionType questionType);
 - (instancetype)initWithCoder:(NSCoder *)aDecoder NS_DESIGNATED_INITIALIZER; \
 @end
 
-ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKImageChoiceAnswerFormat);
-ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKValuePickerAnswerFormat);
-ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKTextChoiceAnswerFormat);
-ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKTextChoice);
-ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKImageChoice);
-ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKTimeOfDayAnswerFormat);
-ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKDateAnswerFormat);
-ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKTimeOfDayAnswerFormat);
-ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKNumericAnswerFormat);
-ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKScaleAnswerFormat);
-ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKContinuousScaleAnswerFormat);
-ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKTextAnswerFormat);
-ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKTimeIntervalAnswerFormat);
+ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKAnswerFormat)
+ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKImageChoiceAnswerFormat)
+ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKValuePickerAnswerFormat)
+ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKMultipleValuePickerAnswerFormat)
+ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKTextChoiceAnswerFormat)
+ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKTextChoice)
+ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKImageChoice)
+ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKTimeOfDayAnswerFormat)
+ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKDateAnswerFormat)
+ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKTimeOfDayAnswerFormat)
+ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKNumericAnswerFormat)
+ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKScaleAnswerFormat)
+ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKContinuousScaleAnswerFormat)
+ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKTextScaleAnswerFormat)
+ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKTextAnswerFormat)
+ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKTimeIntervalAnswerFormat)
+ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKHeightAnswerFormat)
+ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKWeightAnswerFormat)
+
+
+@class ORKQuestionResult;
 
 @interface ORKAnswerFormat ()
 
-- (ORKAnswerFormat *)impliedAnswerFormat;
+- (instancetype)init NS_DESIGNATED_INITIALIZER;
 
 - (BOOL)isHealthKitAnswerFormat;
 
 - (nullable HKObjectType *)healthKitObjectType;
+- (nullable HKObjectType *)healthKitObjectTypeForAuthorization;
 
 @property (nonatomic, strong, readonly, nullable) HKUnit *healthKitUnit;
-@property (nonatomic, strong, nullable) HKUnit *healthKitUserUnit;
 
-- (BOOL)isAnswerValidWithString:(nullable NSString *)text;
+@property (nonatomic, strong, nullable) HKUnit *healthKitUserUnit;
 
 - (nullable NSString *)localizedInvalidValueStringWithAnswerString:(nullable NSString *)text;
 
-- (nonnull Class)questionResultClass;
-- (ORKQuestionResult *)resultWithIdentifier:(NSString *)identifier answer:(id)answer;
+- (nullable NSString *)stringForAnswer:(id)answer;
 
 @end
 
+
 @interface ORKNumericAnswerFormat ()
 
-- (NSNumberFormatter *)makeNumberFormatter;
 - (nullable NSString *)sanitizedTextFieldText:(nullable NSString *)text decimalSeparator:(nullable NSString *)separator;
 
 @end
@@ -109,31 +117,77 @@ ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKTimeIntervalAnswerFormat)
 
 @end
 
-@protocol ORKScaleAnswerFormatProvider<NSObject>
+
+@protocol ORKScaleAnswerFormatProvider <NSObject>
 
 - (nullable NSNumber *)minimumNumber;
 - (nullable NSNumber *)maximumNumber;
-- (nullable NSNumber *)defaultNumber;
+- (nullable id)defaultAnswer;
 - (nullable NSString *)localizedStringForNumber:(nullable NSNumber *)number;
 - (NSInteger)numberOfSteps;
 - (nullable NSNumber *)normalizedValueForNumber:(nullable NSNumber *)number;
+- (BOOL)isVertical;
+- (BOOL)shouldHideSelectedValueLabel;
+- (BOOL)shouldHideRanges;
+- (BOOL)shouldHideLabels;
+- (BOOL)shouldHideValueMarkers;
+- (BOOL)shouldShowDontKnowButton;
+- (NSString *)maximumValueDescription;
+- (NSString *)minimumValueDescription;
+- (nullable NSString *)customDontKnowButtonText;
+- (nullable UIImage *)maximumImage;
+- (nullable UIImage *)minimumImage;
+- (nullable NSArray<UIColor *> *)gradientColors;
+- (nullable NSArray<NSNumber *> *)gradientLocations;
 
 @end
 
-@interface ORKScaleAnswerFormat() <ORKScaleAnswerFormatProvider>
+
+@protocol ORKTextScaleAnswerFormatProvider <ORKScaleAnswerFormatProvider>
+
+- (NSArray<ORKTextChoice *> *)textChoices;
+- (nullable ORKTextChoice *)textChoiceAtIndex:(NSUInteger)index;
+- (NSUInteger)textChoiceIndexForValue:(id<NSCopying, NSCoding, NSObject>)value;
 
 @end
 
-@interface ORKContinuousScaleAnswerFormat() <ORKScaleAnswerFormatProvider>
+@protocol ORKConfirmAnswerFormatProvider <NSObject>
+
+- (ORKAnswerFormat *)confirmationAnswerFormatWithOriginalItemIdentifier:(NSString *)originalItemIdentifier
+                                                           errorMessage:(NSString *)errorMessage;
 
 @end
 
 
-@interface ORKTextChoice() <ORKAnswerOption>
+@interface ORKScaleAnswerFormat () <ORKScaleAnswerFormatProvider>
 
 @end
 
-@interface ORKImageChoice() <ORKAnswerOption>
+
+@interface ORKContinuousScaleAnswerFormat () <ORKScaleAnswerFormatProvider>
+
+@end
+
+
+@interface ORKTextScaleAnswerFormat () <ORKTextScaleAnswerFormatProvider>
+
+@end
+
+
+@interface ORKTextChoice () <ORKAnswerOption>
+
+@end
+
+@interface ORKValuePickerAnswerFormat ()
+
+- (instancetype)initWithTextChoices:(NSArray<ORKTextChoice *> *)textChoices nullChoice:(ORKTextChoice *)nullChoice NS_DESIGNATED_INITIALIZER;
+
+- (ORKTextChoice *)nullTextChoice;
+
+@end
+
+
+@interface ORKImageChoice () <ORKAnswerOption>
 
 @end
 
@@ -143,6 +197,7 @@ ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKTimeIntervalAnswerFormat)
 - (NSDate *)pickerDefaultDate;
 
 @end
+
 
 @interface ORKDateAnswerFormat ()
 
@@ -154,15 +209,32 @@ ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKTimeIntervalAnswerFormat)
 
 @end
 
+
 @interface ORKTimeIntervalAnswerFormat ()
 
 - (NSTimeInterval)pickerDefaultDuration;
 
 @end
 
-@interface ORKTextAnswerFormat ()
+
+@interface ORKTextAnswerFormat () <ORKConfirmAnswerFormatProvider>
 
 @end
+
+
+@interface ORKHeightAnswerFormat ()
+
+@property (nonatomic, readonly) BOOL useMetricSystem;
+
+@end
+
+
+@interface ORKWeightAnswerFormat ()
+
+@property (nonatomic, readonly) BOOL useMetricSystem;
+
+@end
+
 
 @interface ORKAnswerDefaultSource : NSObject
 
@@ -173,8 +245,14 @@ ORK_DESIGNATE_CODING_AND_SERIALIZATION_INITIALIZERS(ORKTimeIntervalAnswerFormat)
 
 - (void)fetchDefaultValueForAnswerFormat:(nullable ORKAnswerFormat *)answerFormat handler:(void(^)(id defaultValue, NSError *error))handler;
 
-- (HKUnit *)defaultHealthKitUnitForAnswerFormat:(ORKAnswerFormat *)answerFormat;
+- (nullable HKUnit *)defaultHealthKitUnitForAnswerFormat:(ORKAnswerFormat *)answerFormat;
 - (void)updateHealthKitUnitForAnswerFormat:(ORKAnswerFormat *)answerFormat force:(BOOL)force;
+
+@end
+
+@interface ORKTextChoiceOther()
+
+@property (nonatomic, nullable) NSString *textViewText;
 
 @end
 

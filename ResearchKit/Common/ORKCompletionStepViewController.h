@@ -28,7 +28,13 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <ResearchKit/ResearchKit_Private.h>
+
+@import UIKit;
+#import <ResearchKit/ORKDefines.h>
+#import <ResearchKit/ORKInstructionStepViewController.h>
+
+
+NS_ASSUME_NONNULL_BEGIN
 
 /**
  An `ORKCompletionStepViewController` object is the step view controller for an
@@ -38,9 +44,23 @@
  Instead, add a completion step to a task, and present the task with a
  task view controller. The task view controller instantiates the step
  view controller for the completion step.
- 
  */
 ORK_CLASS_AVAILABLE
 @interface ORKCompletionStepViewController : ORKInstructionStepViewController
 
+//      FIXME:Deprecate this property
+/**
+ Optional property to allow showing the "Done/Next" button rather than moving this button 
+ to the `rightBarButtonItem`.
+ */
+@property (nonatomic) BOOL shouldShowContinueButton;
+
+/**
+ Optional property to set the color of the checkmark. This allows the checkmark to use a different
+ color from the tintColor of the parent view.
+ */
+@property (nonatomic, copy, nullable) UIColor *checkmarkColor;
+
 @end
+
+NS_ASSUME_NONNULL_END

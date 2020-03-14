@@ -30,53 +30,50 @@
 
 
 #import "ORKVisualConsentStep.h"
-#import "ORKStep_Private.h"
-#import "ORKHelpers.h"
-#import "ORKConsentDocument_Internal.h"
+
 #import "ORKVisualConsentStepViewController.h"
+
+#import "ORKConsentDocument_Internal.h"
+#import "ORKStep_Private.h"
+
+#import "ORKHelpers_Internal.h"
+
 
 @implementation ORKVisualConsentStep
 
-+ (Class)stepViewControllerClass
-{
++ (Class)stepViewControllerClass {
     return [ORKVisualConsentStepViewController class];
 }
 
-- (instancetype)initWithIdentifier:(NSString *)identifier document:(ORKConsentDocument *)consentDocument
-{
+- (instancetype)initWithIdentifier:(NSString *)identifier document:(ORKConsentDocument *)consentDocument {
     self = [super initWithIdentifier:identifier];
-    if (self)
-    {
+    if (self) {
         self.consentDocument = consentDocument;
+        self.showsProgress = NO;
     }
     return self;
 }
 
-- (instancetype)copyWithZone:(NSZone *)zone
-{
+- (instancetype)copyWithZone:(NSZone *)zone {
     ORKVisualConsentStep *step = [super copyWithZone:zone];
     step.consentDocument = self.consentDocument;
     return step;
 }
 
-- (instancetype)initWithCoder:(NSCoder *)aDecoder
-{
+- (instancetype)initWithCoder:(NSCoder *)aDecoder {
     self = [super initWithCoder:aDecoder];
-    if (self)
-    {
+    if (self) {
         ORK_DECODE_OBJ_CLASS(aDecoder, consentDocument, ORKConsentDocument);
     }
     return self;
 }
 
-- (void)encodeWithCoder:(NSCoder *)aCoder
-{
+- (void)encodeWithCoder:(NSCoder *)aCoder {
     [super encodeWithCoder:aCoder];
     ORK_ENCODE_OBJ(aCoder, consentDocument);
 }
 
-+ (BOOL)supportsSecureCoding
-{
++ (BOOL)supportsSecureCoding {
     return YES;
 }
 
@@ -85,20 +82,11 @@
     
     __typeof(self) castObject = object;
     return (isParentSame &&
-            ORKEqualObjects(self.consentDocument, castObject.consentDocument)) ;
+            ORKEqualObjects(self.consentDocument, castObject.consentDocument));
 }
 
 - (NSUInteger)hash {
-    return [super hash] ^ [self.consentDocument hash];
-}
-
-
-
-
-
-- (BOOL)showsProgress
-{
-    return NO;
+    return super.hash ^ self.consentDocument.hash;
 }
 
 @end

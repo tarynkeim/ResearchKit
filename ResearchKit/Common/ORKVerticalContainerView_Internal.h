@@ -28,18 +28,18 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKVerticalContainerView.h"
-#import "ORKSkin.h"
+
 
 NS_ASSUME_NONNULL_BEGIN
 
 @interface ORKVerticalContainerView ()
 
-@property (nonatomic, readonly) ORKScreenType screenType;
+- (void)updateConstraintConstantsForWindow:(UIWindow *)window;
 
-- (void)updateConstraintConstants;
+@property (nonatomic, assign) BOOL scrollContainerShouldCollapseNavbar;
 
 @end
-
 
 NS_ASSUME_NONNULL_END

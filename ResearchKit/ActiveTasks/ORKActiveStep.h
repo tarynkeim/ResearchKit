@@ -29,9 +29,12 @@
  */
 
 
-#import <ResearchKit/ORKDefines.h>
+@import UIKit;
+@import HealthKit;
 #import <ResearchKit/ORKStep.h>
-#import <UIKit/UIKit.h>
+
+
+@class ORKRecorderConfiguration;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -99,6 +102,16 @@ automatically navigates forward when the timer expires.
  The default value of this property is `NO`.
  */
 @property (nonatomic) BOOL shouldSpeakCountDown;
+
+/**
+ A Boolean value indicating whether to speak the halfway point in the count down of the
+ duration of a timed step.
+ 
+ When the value of this property is `YES`, `AVSpeechSynthesizer` is used to synthesize the countdown. Note that this property is ignored if VoiceOver is enabled.
+ 
+ The default value of this property is `NO`.
+ */
+@property (nonatomic) BOOL shouldSpeakRemainingTimeAtHalfway;
 
 
 /**
@@ -170,12 +183,12 @@ The default value of this property is `NO`.
 @property (nonatomic, copy, nullable) NSString *spokenInstruction;
 
 /**
- An image to be displayed below the instructions for the step.
+ Localized text that represents an instructional voice prompt for when the step finishes.
  
- The image can be stretched to fit the available space. When choosing a size
- for this asset, be sure to take into account the variations in device form factors.
+ Instructional speech begins when the step finishes. If VoiceOver is active,
+ the instruction is spoken by VoiceOver.
  */
-@property (nonatomic, strong, nullable) UIImage *image;
+@property (nonatomic, copy, nullable) NSString *finishedSpokenInstruction;
 
 /**
  An array of recorder configurations that define the parameters for recorders to be
@@ -191,34 +204,7 @@ The default value of this property is `NO`.
  
  See also: `ORKRecorderConfiguration` and `ORKRecorder`.
  */
-@property (nonatomic, copy, nullable) NSArray *recorderConfigurations;
-
-
-/**
- The set of HealthKit types the step requests for reading. (read-only)
- 
- The task view controller uses this set of types when constructing a list of
- all the HealthKit types required by all the steps in a task, so that it can
- present the HealthKit access dialog just once during that task.
- 
- By default, the property scans the recorders and collates the HealthKit
- types the recorders require. Subclasses may override this implementation.
- */
-@property (nonatomic, readonly, nullable) NSSet *requestedHealthKitTypesForReading;
-
-/**
- The set of access permissions required for the step. (read-only)
- 
- The permission mask is used by the task view controller to determine the types of
- access to request from users when they complete the initial instruction steps
- in a task. If your step requires access to APIs that limit access, include
- the permissions you require in this mask.
- 
- By default, the property scans the recorders and collates the permissions
- required by the recorders. Subclasses may override this implementation.
- */
-@property (nonatomic, readonly) ORKPermissionMask requestedPermissions;
-
+@property (nonatomic, copy, nullable) NSArray<ORKRecorderConfiguration *> *recorderConfigurations;
 
 @end
 

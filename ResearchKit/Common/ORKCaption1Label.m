@@ -28,8 +28,11 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKCaption1Label.h"
-#import "ORKHelpers.h"
+
+#import "ORKHelpers_Internal.h"
+
 
 @implementation ORKCaption1Label
 

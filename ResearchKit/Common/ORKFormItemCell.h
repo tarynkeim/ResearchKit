@@ -28,21 +28,27 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <UIKit/UIKit.h>
-#import <ResearchKit/ORKFormStep.h>
-#import "ORKSkin.h"
+
+@import UIKit;
+#import "ORKFormStep.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
+@class ORKFormItem;
 @class ORKFormItemCell;
+
 @protocol ORKFormItemCellDelegate <NSObject>
 
 @required
 - (void)formItemCell:(ORKFormItemCell *)cell answerDidChangeTo:(nullable id)answer;
 - (void)formItemCellDidBecomeFirstResponder:(ORKFormItemCell *)cell;
+- (void)formItemCellDidResignFirstResponder:(ORKFormItemCell *)cell;
 - (void)formItemCell:(ORKFormItemCell *)cell invalidInputAlertWithMessage:(NSString *)input;
+- (void)formItemCell:(ORKFormItemCell *)cell invalidInputAlertWithTitle:(NSString *)title message:(NSString *)message;
+- (BOOL)formItemCellShouldDismissKeyboard:(ORKFormItemCell *)cell;
 
 @end
+
 
 @interface ORKFormItemCell : UITableViewCell
 
@@ -50,37 +56,71 @@ NS_ASSUME_NONNULL_BEGIN
                                formItem:(ORKFormItem *)formItem
                                  answer:(nullable id)answer
                           maxLabelWidth:(CGFloat)maxLabelWidth
-                             screenType:(ORKScreenType)screenType;
+                               delegate:(id<ORKFormItemCellDelegate>)delegate;
 
-@property (nonatomic, weak) id<ORKFormItemCellDelegate> delegate;
-
+@property (nonatomic, weak, readonly) id<ORKFormItemCellDelegate> delegate;
 @property (nonatomic, copy, nullable) id answer;
-@property (nonatomic, strong, nullable) ORKFormItem *formItem;
+@property (nonatomic, strong) ORKFormItem *formItem;
 @property (nonatomic, copy, nullable) id defaultAnswer;
 @property (nonatomic) CGFloat maxLabelWidth;
-@property (nonatomic) ORKScreenType screenType;
-
 @property (nonatomic) CGFloat expectedLayoutWidth;
+@property (nonatomic) NSDictionary *savedAnswers;
+@property (nonatomic) BOOL useCardView;
+@property (nonatomic) BOOL isLastItem;
+@property (nonatomic) BOOL isFirstItemInSectionWithoutTitle;
+@property (nonatomic) ORKCardViewStyle cardViewStyle;
 
 @end
 
 
 @interface ORKFormItemTextFieldBasedCell : ORKFormItemCell <UITextFieldDelegate>
+
+- (void)removeEditingHighlight;
+
 @end
+
 
 @interface ORKFormItemTextFieldCell : ORKFormItemTextFieldBasedCell
+
 @end
+
+
+@interface ORKFormItemConfirmTextCell : ORKFormItemTextFieldCell
+
+@end
+
 
 @interface ORKFormItemNumericCell : ORKFormItemTextFieldBasedCell
+
 @end
+
 
 @interface ORKFormItemTextCell : ORKFormItemCell <UITextViewDelegate>
+
 @end
+
 
 @interface ORKFormItemImageSelectionCell : ORKFormItemCell
+
 @end
 
+
 @interface ORKFormItemPickerCell : ORKFormItemTextFieldBasedCell
+
+@end
+
+
+@interface ORKFormItemScaleCell : ORKFormItemCell
+
+@end
+
+
+@interface ORKFormItemLocationCell : ORKFormItemCell
+
+@end
+
+@interface ORKFormItemSESCell : ORKFormItemCell
+
 @end
 
 NS_ASSUME_NONNULL_END

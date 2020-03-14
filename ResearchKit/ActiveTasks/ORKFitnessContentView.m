@@ -28,18 +28,23 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKFitnessContentView.h"
-#import "ORKHelpers.h"
-#import <CoreMotion/CoreMotion.h>
-#import "ORKSkin.h"
+
 #import "ORKActiveStepQuantityView.h"
 #import "ORKTintedImageView.h"
+
+#import "ORKHelpers_Internal.h"
+#import "ORKSkin.h"
+
+@import CoreMotion;
+@import HealthKit;
+
 
 // #define LAYOUT_TEST 1
 // #define LAYOUT_DEBUG 1
 
-@interface ORKFitnessContentView()
-{
+@interface ORKFitnessContentView () {
     ORKQuantityLabel *_timerLabel;
     ORKQuantityPairView *_quantityPairView;
     UIView *_imageSpacer1;
@@ -47,12 +52,11 @@
     ORKTintedImageView *_imageView;
     NSLengthFormatter *_lengthFormatter;
     NSLayoutConstraint *_imageRatioConstraint;
-    ORKScreenType _screenType;
-    NSArray *_constraints;
     NSLayoutConstraint *_topConstraint;
 }
 
 @end
+
 
 @implementation ORKFitnessContentView
 
@@ -67,13 +71,12 @@
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
-        _screenType = ORKScreenTypeiPhone4;
         _timerLabel = [ORKQuantityLabel new];
         _quantityPairView = [ORKQuantityPairView new];
         _imageSpacer1 = [UIView new];
-        [_imageSpacer1 setTranslatesAutoresizingMaskIntoConstraints:NO];
+        _imageSpacer1.translatesAutoresizingMaskIntoConstraints = NO;
         _imageSpacer2 = [UIView new];
-        [_imageSpacer2 setTranslatesAutoresizingMaskIntoConstraints:NO];
+        _imageSpacer2.translatesAutoresizingMaskIntoConstraints = NO;
         [self addSubview:_imageSpacer1];
         [self addSubview:_imageSpacer2];
         [self heartRateView].image = [UIImage imageNamed:@"heart-fitness" inBundle:[NSBundle bundleForClass:[self class]] compatibleWithTraitCollection:nil];
@@ -94,7 +97,7 @@
         self.hasDistance = _hasDistance;
         
 #if LAYOUT_TEST
-        self.timeLeft = 60*5;
+        self.timeLeft = 60 * 5;
         self.hasHeartRate = YES;
         self.hasDistance = YES;
         self.distanceInMeters = 100;
@@ -104,11 +107,14 @@
         self.backgroundColor = [[UIColor redColor] colorWithAlphaComponent:0.2];
         _quantityPairView.backgroundColor = [[UIColor orangeColor] colorWithAlphaComponent:0.2];
 #endif
-        
+      
+        [self setDistanceInMeters:0];
+        [self heartRateView].title = ORKLocalizedString(@"FITNESS_HEARTRATE_TITLE", nil);
+
         [self addSubview:_quantityPairView];
         [self addSubview:_imageView];
         [self addSubview:_timerLabel];
-        [self setNeedsUpdateConstraints];
+        [self setUpConstraints];
         
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(localeDidChange:) name:NSCurrentLocaleDidChangeNotification object:nil];
         
@@ -125,7 +131,6 @@
     _lengthFormatter = [NSLengthFormatter new];
     _lengthFormatter.numberFormatter.maximumFractionDigits = 1;
     _lengthFormatter.numberFormatter.maximumSignificantDigits = 3;
-    
 }
 
 - (void)localeDidChange:(NSNotification *)notification {
@@ -133,56 +138,116 @@
     [self setDistanceInMeters:_distanceInMeters];
 }
 
-
-
-
 - (void)willMoveToWindow:(UIWindow *)newWindow {
     [super willMoveToWindow:newWindow];
-    _screenType = ORKGetScreenTypeForWindow(newWindow);
-    [self updateConstraintConstants];
+    [self updateConstraintConstantsForWindow:newWindow];
 }
 
-- (void)updateConstraintConstants {
-    ORKScreenType screenType = _screenType;
-    const CGFloat CaptionBaselineToTimerTop = ORKGetMetricForScreenType(ORKScreenMetricCaptionBaselineToFitnessTimerTop, screenType);
-    const CGFloat CaptionBaselineToStepViewTop = ORKGetMetricForScreenType(ORKScreenMetricLearnMoreBaselineToStepViewTop, screenType);
+- (void)updateConstraintConstantsForWindow:(UIWindow *)window {
+    const CGFloat CaptionBaselineToTimerTop = ORKGetMetricForWindow(ORKScreenMetricCaptionBaselineToFitnessTimerTop, window);
+    const CGFloat CaptionBaselineToStepViewTop = ORKGetMetricForWindow(ORKScreenMetricLearnMoreBaselineToStepViewTop, window);
     _topConstraint.constant = (CaptionBaselineToTimerTop - CaptionBaselineToStepViewTop);
 }
 
-- (void)updateConstraints {
-    
-    
-    if (_constraints) {
-        [self removeConstraints:_constraints];
-        _constraints = nil;
-    }
+- (void)setUpConstraints {
     NSMutableArray *constraints = [NSMutableArray array];
     NSDictionary *views = NSDictionaryOfVariableBindings(_timerLabel, _imageView, _quantityPairView, _imageSpacer1, _imageSpacer2);
-    [constraints addObjectsFromArray:[NSLayoutConstraint constraintsWithVisualFormat:@"V:[_timerLabel][_imageSpacer1(>=0)][_imageView]" options:NSLayoutFormatAlignAllCenterX metrics:nil views:views]];
-    _topConstraint = [NSLayoutConstraint constraintWithItem:_timerLabel attribute:NSLayoutAttributeTop relatedBy:NSLayoutRelationEqual toItem:self attribute:NSLayoutAttributeTop multiplier:1 constant:0];
-    [self updateConstraintConstants];
+    
+    [constraints addObjectsFromArray:
+     [NSLayoutConstraint constraintsWithVisualFormat:@"V:[_timerLabel][_imageSpacer1(>=0)][_imageView]"
+                                             options:NSLayoutFormatAlignAllCenterX
+                                             metrics:nil
+                                               views:views]];
+    
+    _topConstraint = [NSLayoutConstraint constraintWithItem:_timerLabel
+                                                  attribute:NSLayoutAttributeTop
+                                                  relatedBy:NSLayoutRelationEqual
+                                                     toItem:self
+                                                  attribute:NSLayoutAttributeTop
+                                                 multiplier:1.0
+                                                   constant:0.0];
     [constraints addObject:_topConstraint];
-    [constraints addObject:[NSLayoutConstraint constraintWithItem:_timerLabel attribute:NSLayoutAttributeCenterX relatedBy:NSLayoutRelationEqual toItem:self attribute:NSLayoutAttributeCenterX multiplier:1 constant:0]];
-    [constraints addObject:[NSLayoutConstraint constraintWithItem:_timerLabel attribute:NSLayoutAttributeWidth relatedBy:NSLayoutRelationLessThanOrEqual toItem:self attribute:NSLayoutAttributeWidth multiplier:1 constant:0]];
-    [constraints addObject:[NSLayoutConstraint constraintWithItem:_imageView attribute:NSLayoutAttributeWidth relatedBy:NSLayoutRelationLessThanOrEqual toItem:self attribute:NSLayoutAttributeWidth multiplier:1 constant:0]];
     
-    [constraints addObjectsFromArray:[NSLayoutConstraint constraintsWithVisualFormat:@"V:[_imageView][_imageSpacer2(>=0)][_quantityPairView]|" options:0 metrics:nil views:views]];
-    [constraints addObject:[NSLayoutConstraint constraintWithItem:_imageSpacer1 attribute:NSLayoutAttributeWidth relatedBy:NSLayoutRelationEqual toItem:nil attribute:NSLayoutAttributeNotAnAttribute multiplier:1 constant:0]];
-    [constraints addObject:[NSLayoutConstraint constraintWithItem:_imageSpacer2 attribute:NSLayoutAttributeWidth relatedBy:NSLayoutRelationEqual toItem:nil attribute:NSLayoutAttributeNotAnAttribute multiplier:1 constant:0]];
-    [constraints addObject:[NSLayoutConstraint constraintWithItem:_imageSpacer1 attribute:NSLayoutAttributeHeight relatedBy:NSLayoutRelationEqual toItem:_imageSpacer2 attribute:NSLayoutAttributeHeight multiplier:1 constant:0]];
-    NSLayoutConstraint *c1 = [NSLayoutConstraint constraintWithItem:_imageSpacer1 attribute:NSLayoutAttributeHeight relatedBy:NSLayoutRelationEqual toItem:nil attribute:NSLayoutAttributeNotAnAttribute multiplier:1 constant:1000];
-    c1.priority = UILayoutPriorityDefaultLow-1;
-    [constraints addObject:c1];
+    [constraints addObject:[NSLayoutConstraint constraintWithItem:_timerLabel
+                                                        attribute:NSLayoutAttributeCenterX
+                                                        relatedBy:NSLayoutRelationEqual
+                                                           toItem:self
+                                                        attribute:NSLayoutAttributeCenterX
+                                                       multiplier:1.0
+                                                         constant:0.0]];
     
-    [constraints addObjectsFromArray:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[_quantityPairView]|" options:(NSLayoutFormatOptions)0 metrics:nil views:views]];
+    [constraints addObject:[NSLayoutConstraint constraintWithItem:_timerLabel
+                                                        attribute:NSLayoutAttributeWidth
+                                                        relatedBy:NSLayoutRelationLessThanOrEqual
+                                                           toItem:self attribute:NSLayoutAttributeWidth
+                                                       multiplier:1.0
+                                                         constant:0.0]];
     
-    NSLayoutConstraint *maxWidthConstraint = [NSLayoutConstraint constraintWithItem:self attribute:NSLayoutAttributeWidth relatedBy:NSLayoutRelationEqual toItem:nil attribute:NSLayoutAttributeNotAnAttribute multiplier:1 constant:10000];
-    maxWidthConstraint.priority = UILayoutPriorityRequired-1;
+    [constraints addObject:[NSLayoutConstraint constraintWithItem:_imageView
+                                                        attribute:NSLayoutAttributeWidth
+                                                        relatedBy:NSLayoutRelationLessThanOrEqual
+                                                           toItem:self attribute:NSLayoutAttributeWidth
+                                                       multiplier:1.0
+                                                         constant:0.0]];
+    
+    [constraints addObjectsFromArray:
+     [NSLayoutConstraint constraintsWithVisualFormat:@"V:[_imageView][_imageSpacer2(>=0)][_quantityPairView]|"
+                                             options:(NSLayoutFormatOptions)0
+                                             metrics:nil
+                                               views:views]];
+    
+    [constraints addObject:[NSLayoutConstraint constraintWithItem:_imageSpacer1
+                                                        attribute:NSLayoutAttributeWidth
+                                                        relatedBy:NSLayoutRelationEqual
+                                                           toItem:nil
+                                                        attribute:NSLayoutAttributeNotAnAttribute
+                                                       multiplier:1.0
+                                                         constant:0.0]];
+    
+    [constraints addObject:[NSLayoutConstraint constraintWithItem:_imageSpacer2
+                                                        attribute:NSLayoutAttributeWidth
+                                                        relatedBy:NSLayoutRelationEqual
+                                                           toItem:nil
+                                                        attribute:NSLayoutAttributeNotAnAttribute
+                                                       multiplier:1.0
+                                                         constant:0.0]];
+    
+    [constraints addObject:[NSLayoutConstraint constraintWithItem:_imageSpacer1
+                                                        attribute:NSLayoutAttributeHeight
+                                                        relatedBy:NSLayoutRelationEqual
+                                                           toItem:_imageSpacer2
+                                                        attribute:NSLayoutAttributeHeight
+                                                       multiplier:1.0
+                                                         constant:0.0]];
+    
+    NSLayoutConstraint *imageSpacerHeightConstraint = [NSLayoutConstraint constraintWithItem:_imageSpacer1
+                                                                                   attribute:NSLayoutAttributeHeight
+                                                                                   relatedBy:NSLayoutRelationEqual
+                                                                                      toItem:nil
+                                                                                   attribute:NSLayoutAttributeNotAnAttribute
+                                                                                  multiplier:1.0
+                                                                                    constant:CGFLOAT_MIN];
+    imageSpacerHeightConstraint.priority = UILayoutPriorityDefaultLow - 1;
+    [constraints addObject:imageSpacerHeightConstraint];
+    
+    [constraints addObjectsFromArray:
+     [NSLayoutConstraint constraintsWithVisualFormat:@"H:|[_quantityPairView]|"
+                                             options:(NSLayoutFormatOptions)0
+                                             metrics:nil
+                                               views:views]];
+    
+    NSLayoutConstraint *maxWidthConstraint = [NSLayoutConstraint constraintWithItem:self
+                                                                          attribute:NSLayoutAttributeWidth 
+                                                                          relatedBy:NSLayoutRelationEqual
+                                                                             toItem:nil
+                                                                          attribute:NSLayoutAttributeNotAnAttribute
+                                                                         multiplier:1.0
+                                                                           constant:ORKScreenMetricMaxDimension];
+    maxWidthConstraint.priority = UILayoutPriorityRequired - 1;
     [constraints addObject:maxWidthConstraint];
     
-    [self addConstraints:constraints];
-    _constraints = constraints;
-    [super updateConstraints];
+    [NSLayoutConstraint activateConstraints:constraints];
+    [self updateConstraintConstantsForWindow:self.window];
 }
 
 - (void)setImage:(UIImage *)image {
@@ -191,9 +256,15 @@
     
     _imageRatioConstraint.active = NO;
     
-    CGSize sz = image.size;
-    if (sz.width > 0 && sz.height > 0) {
-        _imageRatioConstraint = [NSLayoutConstraint constraintWithItem:_imageView attribute:NSLayoutAttributeHeight relatedBy:NSLayoutRelationEqual toItem:_imageView attribute:NSLayoutAttributeWidth multiplier:sz.height/sz.width constant:0];
+    CGSize size = image.size;
+    if (size.width > 0 && size.height > 0) {
+        _imageRatioConstraint = [NSLayoutConstraint constraintWithItem:_imageView
+                                                             attribute:NSLayoutAttributeHeight
+                                                             relatedBy:NSLayoutRelationEqual
+                                                                toItem:_imageView
+                                                             attribute:NSLayoutAttributeWidth
+                                                            multiplier:size.height / size.width
+                                                              constant:0.0];
         _imageRatioConstraint.active = YES;
     }
 }
@@ -213,11 +284,10 @@
 - (void)setHeartRate:(NSString *)heartRate {
     _heartRate = heartRate;
     [self heartRateView].value = heartRate;
-    [self heartRateView].title = ORKLocalizedString(@"FITNESS_HEARTRATE_TITLE", nil);
 }
 
 - (void)updateKeylineVisible {
-    [_quantityPairView setKeylineHidden:! (_hasDistance && _hasHeartRate)];
+    [_quantityPairView setKeylineHidden:!(_hasDistance && _hasHeartRate)];
 }
 
 - (void)setDistanceInMeters:(double)distanceInMeters {
@@ -244,12 +314,12 @@
     double conversionFactor = 1.0;
     if ([hkUnit isNull] && (unit == NSLengthFormatterUnitYard)) {
         hkUnit = [HKUnit footUnit];
-        conversionFactor = 1/3.0;
+        conversionFactor = 1.0 / 3.0;
     }
     HKQuantity *quantity = [HKQuantity quantityWithUnit:[HKUnit meterUnit] doubleValue:displayDistance];
     distanceString = [_lengthFormatter.numberFormatter stringFromNumber:@([quantity doubleValueForUnit:hkUnit]*conversionFactor)];
     
-    [self distanceView].title = [NSString stringWithFormat:ORKLocalizedString(@"FITNESS_DISTANCE_TITLE_FORMAT", nil), unitString];
+    [self distanceView].title = [NSString localizedStringWithFormat:ORKLocalizedString(@"FITNESS_DISTANCE_TITLE_FORMAT", nil), unitString];
     [self distanceView].value = distanceString;
 }
 
@@ -259,19 +329,18 @@
 }
 
 - (void)updateTimerLabel {
-    static NSDateComponentsFormatter *_formatter = nil;
+    static NSDateComponentsFormatter *formatter = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        NSDateComponentsFormatter *fmt = [NSDateComponentsFormatter new];
-        fmt.unitsStyle = NSDateComponentsFormatterUnitsStylePositional;
-        fmt.zeroFormattingBehavior = NSDateComponentsFormatterZeroFormattingBehaviorPad;
-        fmt.allowedUnits = NSCalendarUnitMinute | NSCalendarUnitSecond;
-        _formatter = fmt;
+        formatter = [NSDateComponentsFormatter new];
+        formatter.unitsStyle = NSDateComponentsFormatterUnitsStylePositional;
+        formatter.zeroFormattingBehavior = NSDateComponentsFormatterZeroFormattingBehaviorPad;
+        formatter.allowedUnits = NSCalendarUnitMinute | NSCalendarUnitSecond;
     });
     
-    NSString *s = [_formatter stringFromTimeInterval:MAX(round(_timeLeft),0)];
-    _timerLabel.text = s;
-    _timerLabel.hidden = (s == nil);
+    NSString *labelString = [formatter stringFromTimeInterval:MAX(round(_timeLeft),0)];
+    _timerLabel.text = labelString;
+    _timerLabel.hidden = (labelString == nil);
 }
 
 @end

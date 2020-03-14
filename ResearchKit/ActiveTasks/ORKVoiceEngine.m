@@ -30,44 +30,34 @@
 
 
 #import "ORKVoiceEngine.h"
-#import "ORKHelpers.h"
+#import "ORKVoiceEngine_Internal.h"
 
+#import "ORKHelpers_Internal.h"
 
-@interface ORKVoiceEngine ()
-
-@property (nonatomic, strong)  AVSpeechSynthesizer *speechSynthesizer;
-
-@end
 
 @implementation ORKVoiceEngine
 
-
-
-+(ORKVoiceEngine *)sharedVoiceEngine
-{
-    static ORKVoiceEngine *shared;
++ (ORKVoiceEngine *)sharedVoiceEngine {
+    static ORKVoiceEngine *sharedVoiceEngine;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        shared = [ORKVoiceEngine new];
+        sharedVoiceEngine = [ORKVoiceEngine new];
     });
-    return shared;
+    return sharedVoiceEngine;
 }
 
-- (instancetype)init
-{
+- (instancetype)init {
     self = [super init];
     if (self) {
-        self.speechSynthesizer = [[AVSpeechSynthesizer alloc] init];
+        _speechSynthesizer = [[AVSpeechSynthesizer alloc] init];
         self.speechSynthesizer.delegate = self;
     }
     return self;
 }
 
-- (void)dealloc
-{
+- (void)dealloc {
     [self.speechSynthesizer stopSpeakingAtBoundary:AVSpeechBoundaryImmediate];
     self.speechSynthesizer.delegate = nil;
-    self.speechSynthesizer = nil;
 }
 
 - (void)speakText:(NSString *)text {
@@ -81,8 +71,12 @@
     }
     
     AVSpeechUtterance *utterance = [[AVSpeechUtterance alloc] initWithString:text];
-    utterance.rate = AVSpeechUtteranceMaximumSpeechRate / 7;
-
+    float speechRate = AVSpeechUtteranceDefaultSpeechRate;
+    if (![[NSProcessInfo processInfo] isOperatingSystemAtLeastVersion:(NSOperatingSystemVersion){.majorVersion = 9, .minorVersion = 0, .patchVersion = 0}]) {
+        speechRate = AVSpeechUtteranceDefaultSpeechRate / 2.5;
+    }
+    utterance.rate = speechRate;
+    
     [self.speechSynthesizer speakUtterance:utterance];
 }
 
@@ -96,13 +90,10 @@
 
 
 - (void)speechSynthesizer:(AVSpeechSynthesizer *)synthesizer didFinishSpeechUtterance:(AVSpeechUtterance *)utterance {
-    
 }
 
-- (BOOL)isSpeaking
-{
+- (BOOL)isSpeaking {
     return self.speechSynthesizer.isSpeaking;
 }
-
 
 @end

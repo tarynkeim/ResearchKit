@@ -28,9 +28,17 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <ResearchKit/ORKVerticalContainerView.h>
 
-@interface ORKActiveStepView : ORKVerticalContainerView
+@import Foundation;
+#import "ORKStepContainerView.h"
+
+
+NS_ASSUME_NONNULL_BEGIN
+
+@class ORKActiveStep;
+@class ORKActiveStepCustomView;
+
+@interface ORKActiveStepView : ORKStepContainerView;
 
 @property (nonatomic, strong, nullable) ORKActiveStep *activeStep;
 @property (nonatomic, strong, nullable) ORKActiveStepCustomView *activeCustomView;
@@ -38,3 +46,5 @@
 - (void)updateTitle:(nullable NSString *)title text:(nullable NSString *)text;
 
 @end
+
+NS_ASSUME_NONNULL_END

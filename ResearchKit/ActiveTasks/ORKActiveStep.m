@@ -30,16 +30,19 @@
 
 
 #import "ORKActiveStep.h"
-#import "ORKHelpers.h"
-#import "ORKStep_Private.h"
 #import "ORKActiveStep_Internal.h"
+
 #import "ORKActiveStepViewController.h"
 #import "ORKRecorder_Private.h"
 
+#import "ORKStep_Private.h"
+
+#import "ORKHelpers_Internal.h"
+
+
 @implementation ORKActiveStep
 
-+ (Class)stepViewControllerClass
-{
++ (Class)stepViewControllerClass {
     return [ORKActiveStepViewController class];
 }
 
@@ -53,25 +56,25 @@
 
 - (BOOL)hasTitle {
     NSString *title = self.title;
-    return  ( title != nil && title.length > 0);
+    return  (title != nil && title.length > 0);
 }
 
 - (BOOL)hasText {
     NSString *text = self.text;
-    return  ( text != nil && text.length > 0);
+    return  (text != nil && text.length > 0);
 }
 
 - (BOOL)hasVoice {
-    return  ( _spokenInstruction != nil && _spokenInstruction.length > 0);
+    BOOL hasSpokenInstruction = (_spokenInstruction != nil && _spokenInstruction.length > 0);
+    BOOL hasFinishedSpokenInstruction = (_finishedSpokenInstruction != nil && _finishedSpokenInstruction.length > 0);
+    return  (hasSpokenInstruction || hasFinishedSpokenInstruction);
 }
 
 - (BOOL)isRestorable {
     return NO;
 }
 
-
-+ (BOOL)supportsSecureCoding
-{
++ (BOOL)supportsSecureCoding {
     return YES;
 }
 
@@ -83,12 +86,12 @@
     return self;
 }
 
-- (instancetype)copyWithZone:(NSZone *)zone
-{
+- (instancetype)copyWithZone:(NSZone *)zone {
     ORKActiveStep *step = [super copyWithZone:zone];
     step.stepDuration = self.stepDuration;
     step.shouldStartTimerAutomatically = self.shouldStartTimerAutomatically;
     step.shouldSpeakCountDown = self.shouldSpeakCountDown;
+    step.shouldSpeakRemainingTimeAtHalfway = self.shouldSpeakRemainingTimeAtHalfway;
     step.shouldShowDefaultTimer = self.shouldShowDefaultTimer;
     step.shouldPlaySoundOnStart = self.shouldPlaySoundOnStart;
     step.shouldPlaySoundOnFinish = self.shouldPlaySoundOnFinish;
@@ -97,20 +100,18 @@
     step.shouldUseNextAsSkipButton = self.shouldUseNextAsSkipButton;
     step.shouldContinueOnFinish = self.shouldContinueOnFinish;
     step.spokenInstruction = self.spokenInstruction;
+    step.finishedSpokenInstruction = self.finishedSpokenInstruction;
     step.recorderConfigurations = [self.recorderConfigurations copy];
-    step.image = self.image;
     return step;
 }
 
-
-- (instancetype)initWithCoder:(NSCoder *)aDecoder
-{
+- (instancetype)initWithCoder:(NSCoder *)aDecoder {
     self = [super initWithCoder:aDecoder];
-    if (self)
-    {
+    if (self ) {
         ORK_DECODE_DOUBLE(aDecoder, stepDuration);
         ORK_DECODE_BOOL(aDecoder, shouldStartTimerAutomatically);
         ORK_DECODE_BOOL(aDecoder, shouldSpeakCountDown);
+        ORK_DECODE_BOOL(aDecoder, shouldSpeakRemainingTimeAtHalfway);
         ORK_DECODE_BOOL(aDecoder, shouldShowDefaultTimer);
         ORK_DECODE_BOOL(aDecoder, shouldPlaySoundOnStart);
         ORK_DECODE_BOOL(aDecoder, shouldPlaySoundOnFinish);
@@ -119,18 +120,18 @@
         ORK_DECODE_BOOL(aDecoder, shouldUseNextAsSkipButton);
         ORK_DECODE_BOOL(aDecoder, shouldContinueOnFinish);
         ORK_DECODE_OBJ_CLASS(aDecoder, spokenInstruction, NSString);
-        ORK_DECODE_IMAGE(aDecoder, image);
+        ORK_DECODE_OBJ_CLASS(aDecoder, finishedSpokenInstruction, NSString);
         ORK_DECODE_OBJ_ARRAY(aDecoder, recorderConfigurations, ORKRecorderConfiguration);
     }
     return self;
 }
 
-- (void)encodeWithCoder:(NSCoder *)aCoder
-{
+- (void)encodeWithCoder:(NSCoder *)aCoder {
     [super encodeWithCoder:aCoder];
     ORK_ENCODE_DOUBLE(aCoder, stepDuration);
     ORK_ENCODE_BOOL(aCoder, shouldStartTimerAutomatically);
     ORK_ENCODE_BOOL(aCoder, shouldSpeakCountDown);
+    ORK_ENCODE_BOOL(aCoder, shouldSpeakRemainingTimeAtHalfway);
     ORK_ENCODE_BOOL(aCoder, shouldShowDefaultTimer);
     ORK_ENCODE_BOOL(aCoder, shouldPlaySoundOnStart);
     ORK_ENCODE_BOOL(aCoder, shouldPlaySoundOnFinish);
@@ -138,12 +139,10 @@
     ORK_ENCODE_BOOL(aCoder, shouldVibrateOnFinish);
     ORK_ENCODE_BOOL(aCoder, shouldUseNextAsSkipButton);
     ORK_ENCODE_BOOL(aCoder, shouldContinueOnFinish);
-    ORK_ENCODE_IMAGE(aCoder, image);
     ORK_ENCODE_OBJ(aCoder, spokenInstruction);
+    ORK_ENCODE_OBJ(aCoder, finishedSpokenInstruction);
     ORK_ENCODE_OBJ(aCoder, recorderConfigurations);
 }
-
-
 
 - (BOOL)isEqual:(id)object {
     BOOL isParentSame = [super isEqual:object];
@@ -151,38 +150,34 @@
     __typeof(self) castObject = object;
     return (isParentSame &&
             ORKEqualObjects(self.spokenInstruction, castObject.spokenInstruction) &&
+            ORKEqualObjects(self.finishedSpokenInstruction, castObject.finishedSpokenInstruction) &&
             ORKEqualObjects(self.recorderConfigurations, castObject.recorderConfigurations) &&
-            ORKEqualObjects(self.image, castObject.image) &&
             (self.stepDuration == castObject.stepDuration) &&
             (self.shouldShowDefaultTimer == castObject.shouldShowDefaultTimer) &&
             (self.shouldStartTimerAutomatically == castObject.shouldStartTimerAutomatically) &&
             (self.shouldSpeakCountDown == castObject.shouldSpeakCountDown) &&
+            (self.shouldSpeakRemainingTimeAtHalfway == castObject.shouldSpeakRemainingTimeAtHalfway) &&
             (self.shouldPlaySoundOnStart == castObject.shouldPlaySoundOnStart) &&
             (self.shouldPlaySoundOnFinish == castObject.shouldPlaySoundOnFinish) &&
             (self.shouldVibrateOnStart == castObject.shouldVibrateOnStart) &&
             (self.shouldVibrateOnFinish == castObject.shouldVibrateOnFinish) &&
             (self.shouldContinueOnFinish == castObject.shouldContinueOnFinish) &&
-            (self.shouldUseNextAsSkipButton == castObject.shouldUseNextAsSkipButton)) ;
+            (self.shouldUseNextAsSkipButton == castObject.shouldUseNextAsSkipButton));
 }
 
-
-
-
-
-- (NSSet *)requestedHealthKitTypesForReading {
-    NSMutableSet *set = [NSMutableSet set];
+- (NSSet<HKObjectType *> *)requestedHealthKitTypesForReading {
+    NSMutableSet<HKObjectType *> *set = [NSMutableSet set];
     for (ORKRecorderConfiguration *config in self.recorderConfigurations) {
-        NSSet *subset = [config requestedHealthKitTypesForReading];
+        NSSet<HKObjectType *> *subset = [config requestedHealthKitTypesForReading];
         if (subset) {
             [set unionSet:subset];
         }
     }
     return set;
-    
 }
 
 - (ORKPermissionMask)requestedPermissions {
-    ORKPermissionMask mask = ORKPermissionNone;
+    ORKPermissionMask mask = [super requestedPermissions];
     for (ORKRecorderConfiguration *config in self.recorderConfigurations) {
         mask |= [config requestedPermissionMask];
     }

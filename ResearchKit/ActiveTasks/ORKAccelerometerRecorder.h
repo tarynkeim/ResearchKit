@@ -28,7 +28,10 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
+@import UIKit;
 #import <ResearchKit/ORKRecorder.h>
+
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -53,16 +56,14 @@ ORK_CLASS_AVAILABLE
  @param frequency           The frequency of accelerometer data collected from CoreMotion, in hertz (Hz).
  @param step                The step that requested this recorder.
  @param outputDirectory     The directory in which the accelerometer data should be stored.
+ 
  @return An initialized accelerometer recorder.
  */
-- (instancetype)initWithIdentifier:(NSString *)identifer
+- (instancetype)initWithIdentifier:(NSString *)identifier
                          frequency:(double)frequency
-                              step:(ORKStep *)step
-                   outputDirectory:(NSURL *)outputDirectory;
+                              step:(nullable ORKStep *)step
+                   outputDirectory:(nullable NSURL *)outputDirectory;
 
 @end
 
 NS_ASSUME_NONNULL_END
-
-
-

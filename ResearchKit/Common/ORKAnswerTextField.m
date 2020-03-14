@@ -28,13 +28,16 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKAnswerTextField.h"
+#import "ORKSkin.h"
+
 #import "ORKAccessibility.h"
+
 
 @implementation ORKAnswerTextField
 
-- (instancetype)init
-{
+- (instancetype)init {
     self = [super init];
     if (self) {
         [self init_ORKAnswerTextField];
@@ -42,8 +45,7 @@
     return self;
 }
 
-- (instancetype)initWithFrame:(CGRect)frame
-{
+- (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
         [self init_ORKAnswerTextField];
@@ -52,13 +54,33 @@
 }
 
 - (void)init_ORKAnswerTextField {
-    
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(updateAppearance)
                                                  name:UIContentSizeCategoryDidChangeNotification
                                                object:nil];
-    
+    [self addAccessoryViewWithDoneButton];
     [self updateAppearance];
+}
+
+- (void)addAccessoryViewWithDoneButton {
+    UIToolbar* accessoryViewWithDoneButton = [[UIToolbar alloc] init];
+    [accessoryViewWithDoneButton sizeToFit];
+    UIBarButtonItem *flexibleSpace = [[UIBarButtonItem alloc]
+                                      initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace
+                                      target:nil action:nil];
+    UIBarButtonItem *doneButton = [[UIBarButtonItem alloc]
+                                   initWithBarButtonSystemItem:UIBarButtonSystemItemDone
+                                   target:self action:@selector(keyboardAccessoryViewDoneButtonPressed)];
+    accessoryViewWithDoneButton.items = @[flexibleSpace, doneButton];
+    [accessoryViewWithDoneButton setBarTintColor:ORKColor(ORKBackgroundColorKey)];
+    self.inputAccessoryView = accessoryViewWithDoneButton;
+}
+
+- (void)keyboardAccessoryViewDoneButtonPressed {
+    [[NSNotificationCenter defaultCenter]
+     postNotificationName:ORKDoneButtonPressedKey
+     object:self];
+    [self resignFirstResponder];
 }
 
 - (void)updateAppearance {
@@ -66,25 +88,16 @@
     [self invalidateIntrinsicContentSize];
 }
 
-
 - (void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
 + (UIFont *)defaultFont {
     UIFontDescriptor *descriptor = [UIFontDescriptor preferredFontDescriptorWithTextStyle:UIFontTextStyleSubheadline];
-    return [UIFont systemFontOfSize:[[descriptor objectForKey: UIFontDescriptorSizeAttribute] doubleValue]+2.0];
+    return [UIFont systemFontOfSize:((NSNumber *)[descriptor objectForKey:UIFontDescriptorSizeAttribute]).doubleValue + 2.0];
 }
 
 #pragma mark - Accessibility
-
-- (NSString *)accessibilityValue {
-    if (self.text.length > 0) {
-        return self.text;
-    }
-    
-    return self.placeholder;
-}
 
 - (CGRect)accessibilityFrame {
     UITableViewCell *containingCell = (UITableViewCell *)[self ork_superviewOfType:[UITableViewCell class]];
@@ -95,3 +108,4 @@
 }
 
 @end
+

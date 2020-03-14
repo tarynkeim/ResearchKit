@@ -28,245 +28,338 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKTableContainerView.h"
-#import "ORKHelpers.h"
-#import "ORKSkin.h"
-#import <ResearchKit/ResearchKit_Private.h>
-#import "ORKVerticalContainerView.h"
-#import "ORKSkin.h"
-#import "ORKVerticalContainerView_Internal.h"
-#import "UIApplication+ResearchKit.h"
+#import "ORKStepContentView_Private.h"
+
+#import "ORKNavigationContainerView_Internal.h"
 #import "ORKStepHeaderView.h"
+
+#import "ORKTitleLabel.h"
+#import "ORKHelpers_Internal.h"
+#import "ORKSkin.h"
+
+#import "ORKBodyItem.h"
+#import "ORKBodyContainerView.h"
+
 
 // Enable this define to see outlines and colors of all the views laid out at this level.
 // #define LAYOUT_DEBUG
 
-@interface ORKTableContainerView() <UIGestureRecognizerDelegate>
+@interface ORKTableContainerView () <UIGestureRecognizerDelegate>
 
 @end
 
-@implementation ORKTableContainerView
-{
-    UIView *_realFooterView;
-    
+static const CGFloat FooterViewHeightOffset = 20.0;
+
+@implementation ORKTableContainerView {
+    CGFloat _leftRightPadding;
+    UIView *_footerView;
     NSLayoutConstraint *_bottomConstraint;
-    NSArray *_constraints;
-    
-    CGFloat _keyboardOverlap;
-    BOOL _keyboardIsUp;
+    NSLayoutConstraint *_tableViewTopConstraint;
+    NSLayoutConstraint *_tableViewBottomConstraint;
     
     UIScrollView *_scrollView;
+    
+    UITapGestureRecognizer *_tapOffGestureRecognizer;
+    NSMutableArray<NSLayoutConstraint *> *_navigationContainerConstraints;
 }
 
+- (instancetype)init {
+    return [self initWithStyle:UITableViewStyleGrouped pinNavigationContainer:YES];
+}
 
-
-- (instancetype)initWithFrame:(CGRect)frame {
-    self = [super initWithFrame:frame];
+- (instancetype)initWithStyle:(UITableViewStyle)style pinNavigationContainer:(BOOL)pinNavigationContainer {
+    self = [super init];
     if (self) {
-        self.autoresizingMask = UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight;
-        
-        _tableView = [[UITableView alloc] initWithFrame:self.bounds style:UITableViewStylePlain];
-        _tableView.backgroundColor = ORKColor(ORKBackgroundColorKey);
-        _tableView.allowsSelection = YES;
-        _tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeInteractive;
-        _tableView.preservesSuperviewLayoutMargins = YES;
-        [self addSubview:_tableView];
+        _leftRightPadding = ORKStepContainerLeftRightPaddingForWindow(self.window);
+        [self setupTableViewWithStyle:style];
         
         _scrollView = _tableView;
+        self.isNavigationContainerScrollable = !pinNavigationContainer;
         
-        _realFooterView = [UIView new];
-        _realFooterView.layoutMargins = UIEdgeInsetsZero;
-#ifdef LAYOUT_DEBUG
-        _realFooterView.backgroundColor = [[UIColor redColor] colorWithAlphaComponent:0.3];
-#endif
-        _tableView.tableFooterView = _realFooterView;
+        [self addStepContentView];
+        [self setupTableViewConstraints];
+
+        [self placeNavigationContainerView];
         
-        _stepHeaderView = [ORKStepHeaderView new];
-#ifdef LAYOUT_DEBUG
-        _stepHeaderView.backgroundColor = [[UIColor blueColor] colorWithAlphaComponent:0.3];
-#endif
-        
-        _continueSkipContainerView = [ORKNavigationContainerView new];
-        _continueSkipContainerView.preservesSuperviewLayoutMargins = NO;
-        _continueSkipContainerView.translatesAutoresizingMaskIntoConstraints = NO;
-        _continueSkipContainerView.topMargin = 20;
-        _continueSkipContainerView.bottomMargin = 20;
-#ifdef LAYOUT_DEBUG
-        _continueSkipContainerView.backgroundColor = [[UIColor greenColor] colorWithAlphaComponent:0.3];
-#endif
-        [_realFooterView addSubview:_continueSkipContainerView];
-        
-        [self setNeedsUpdateConstraints];
-        
-        UITapGestureRecognizer *tapOffRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tapOffAction:)];
-        tapOffRecognizer.delegate = self;
-        [_tableView addGestureRecognizer:tapOffRecognizer];
+        _tapOffGestureRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tapOffAction:)];
+        _tapOffGestureRecognizer.delegate = self;
+        [_tableView addGestureRecognizer:_tapOffGestureRecognizer];
     }
     return self;
 }
 
+- (void)setupTableViewWithStyle:(UITableViewStyle)style {
+    if (!_tableView) {
+        _tableView = [[UITableView alloc] initWithFrame:CGRectZero style:style];
+    }
+    
+    _tableView.backgroundColor = ORKColor(ORKBackgroundColorKey);
+    _tableView.allowsSelection = YES;
+    _tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeInteractive;
+    _tableView.preservesSuperviewLayoutMargins = YES;
+    _tableView.layer.masksToBounds = YES;
+    [_tableView setContentInsetAdjustmentBehavior:UIScrollViewContentInsetAdjustmentNever];
+    _tableView.scrollIndicatorInsets = ORKScrollIndicatorInsetsForScrollView(self);
+    [self addSubview:_tableView];
+    [self setupFooterView];
+}
 
+- (void)placeNavigationContainerView {
+    [self.navigationFooterView removeFromSuperview];
+    if (_navigationContainerConstraints) {
+        [NSLayoutConstraint deactivateConstraints:_navigationContainerConstraints];
+        _navigationContainerConstraints = nil;
+    }
+    if (self.isNavigationContainerScrollable) {
+        [_footerView addSubview:self.navigationFooterView];
+    }
+    else {
+        [self removeFooterView];
+        [self addSubview:self.navigationFooterView];
+    }
+    [self setupNavigationContainerViewConstraints];
+    [self updateTableViewBottomConstraint];
+}
+
+- (void)setupNavigationContainerViewConstraints {
+    self.navigationFooterView.translatesAutoresizingMaskIntoConstraints = NO;
+    _navigationContainerConstraints = [[NSMutableArray alloc] init];
+    if (self.isNavigationContainerScrollable) {
+        
+        NSLayoutConstraint *_footerWidthConstraint = [NSLayoutConstraint constraintWithItem:self.navigationFooterView
+                                                                                  attribute:NSLayoutAttributeWidth
+                                                                                  relatedBy:NSLayoutRelationEqual
+                                                                                     toItem:_footerView
+                                                                                  attribute:NSLayoutAttributeWidth
+                                                                                 multiplier:1.0
+                                                                                   constant:0.0];
+        
+        _footerWidthConstraint.priority = UILayoutPriorityRequired-1;
+        [_navigationContainerConstraints addObject:_footerWidthConstraint];
+        
+        [_navigationContainerConstraints addObject:[NSLayoutConstraint constraintWithItem:self.navigationFooterView
+                                                                                attribute:NSLayoutAttributeTop
+                                                                                relatedBy:NSLayoutRelationGreaterThanOrEqual
+                                                                                   toItem:_footerView
+                                                                                attribute:NSLayoutAttributeTop
+                                                                               multiplier:1.0
+                                                                                 constant:0.0]];
+        
+        _bottomConstraint = [NSLayoutConstraint constraintWithItem:self.navigationFooterView
+                                                         attribute:NSLayoutAttributeBottom
+                                                         relatedBy:NSLayoutRelationEqual
+                                                            toItem:_footerView
+                                                         attribute:NSLayoutAttributeBottom
+                                                        multiplier:1.0
+                                                          constant:0.0];
+        _bottomConstraint.priority = UILayoutPriorityDefaultHigh - 1;
+        [_navigationContainerConstraints addObject:_bottomConstraint];
+    }
+    else {
+        [_navigationContainerConstraints addObjectsFromArray:@[
+                                                               [NSLayoutConstraint constraintWithItem:self.navigationFooterView
+                                                                                            attribute:NSLayoutAttributeLeft
+                                                                                            relatedBy:NSLayoutRelationEqual
+                                                                                               toItem:self
+                                                                                            attribute:NSLayoutAttributeLeft
+                                                                                           multiplier:1.0
+                                                                                             constant:0.0],
+                                                               [NSLayoutConstraint constraintWithItem:self.navigationFooterView
+                                                                                            attribute:NSLayoutAttributeRight
+                                                                                            relatedBy:NSLayoutRelationEqual
+                                                                                               toItem:self
+                                                                                            attribute:NSLayoutAttributeRight
+                                                                                           multiplier:1.0
+                                                                                             constant:0.0],
+                                                               [NSLayoutConstraint constraintWithItem:self.navigationFooterView
+                                                                                            attribute:NSLayoutAttributeBottom
+                                                                                            relatedBy:NSLayoutRelationEqual
+                                                                                               toItem:self
+                                                                                            attribute:NSLayoutAttributeBottom
+                                                                                           multiplier:1.0
+                                                                                             constant:0.0]
+                                                               ]];
+    }
+    [NSLayoutConstraint activateConstraints:_navigationContainerConstraints];
+}
 
 - (void)layoutSubviews {
     [super layoutSubviews];
-    
-    _tableView.frame = self.bounds;
-    
-    {
-        _stepHeaderView.frame = (CGRect){{0,0},{_tableView.bounds.size.width,30}};
-        _tableView.tableHeaderView = _stepHeaderView;
-        // Do the layout with the view in the hierarchy; otherwise it won't
-        // get the right margins.
-        [_stepHeaderView setNeedsLayout];
-        [_stepHeaderView layoutIfNeeded];
-        CGSize headerSize = [_stepHeaderView systemLayoutSizeFittingSize:(CGSize){_tableView.bounds.size.width,0} withHorizontalFittingPriority:UILayoutPriorityRequired verticalFittingPriority:UILayoutPriorityFittingSizeLevel];
-        _stepHeaderView.bounds = (CGRect){{0,0},headerSize};
-        _tableView.tableHeaderView = nil;
-        _tableView.tableHeaderView = _stepHeaderView;
+    [self resizeFooterToFit];
+    [self updateTableViewBottomConstraint];
+}
+
+- (void)addStepContentView {
+    _tableView.tableHeaderView = self.stepContentView;
+}
+
+- (void)setupFooterView {
+    if (!_footerView) {
+        _footerView = [UIView new];
     }
-    
-    {
+    _footerView.layoutMargins = UIEdgeInsetsZero;
+    _tableView.tableFooterView = _footerView;
+}
+
+- (void)removeFooterView {
+    if (_footerView) {
+        [_footerView removeFromSuperview];
+        _footerView = nil;
+    }
+    _tableView.tableFooterView = nil;
+}
+
+- (void)resizeFooterToFit {
+    //     This method would resize the tableFooterView, so that navigationContainerView can have appropriate height.
+    if (self.isNavigationContainerScrollable && _tableView.bounds.size.height > 0 && self.navigationFooterView.bounds.size.height > 0 && ![self.navigationFooterView wasContinueOrSkipButtonJustPressed]) {
+        CGFloat minHeight = self.navigationFooterView.bounds.size.height;
         _tableView.tableFooterView = nil;
-        [_realFooterView removeFromSuperview];
-        CGSize footerSize = [_continueSkipContainerView systemLayoutSizeFittingSize:(CGSize){_tableView.bounds.size.width,0} withHorizontalFittingPriority:UILayoutPriorityRequired verticalFittingPriority:UILayoutPriorityFittingSizeLevel];
-        CGRect footerBounds = (CGRect){{0,0},footerSize};
-        
-        CGFloat boundsHeightUnused = _tableView.bounds.size.height - _tableView.contentSize.height;
-        if (boundsHeightUnused > footerBounds.size.height) {
-            _tableView.scrollEnabled = YES;
-            footerBounds.size.height = boundsHeightUnused;
-        } else {
-            _tableView.scrollEnabled = YES;
-        }
-        _realFooterView.frame = footerBounds;
-        _tableView.tableFooterView = _realFooterView;
-        
+        [_tableView layoutIfNeeded];
+        CGFloat tableViewHeight = self.tableView.bounds.size.height;
+        CGFloat newHeight = tableViewHeight - self.tableView.contentSize.height + FooterViewHeightOffset;
+        CGRect footerBounds = newHeight < minHeight ? CGRectMake(0.0, 0.0, _tableView.bounds.size.width, minHeight) : CGRectMake(0.0, 0.0, _tableView.bounds.size.width, newHeight);
+
+        [_footerView setBounds:footerBounds];
+        _tableView.tableFooterView = _footerView;
     }
 }
 
-- (void)updateContinueButtonConstraints {
-    _bottomConstraint.constant = -_keyboardOverlap;
+- (void)sizeHeaderToFit {
+    CGFloat width = self.stepContentView.bounds.size.width > CGFLOAT_MIN ? self.stepContentView.bounds.size.width : self.bounds.size.width;
+    CGFloat padding = [[self stepContentView] useExtendedPadding] ? ORKStepContainerExtendedLeftRightPaddingForWindow(self.window) : ORKStepContainerLeftRightPaddingForWindow(self.window);
+    
+    CGFloat preferredWidth = (width - (padding * 2));
+    [self.stepContentView.titleLabel setPreferredMaxLayoutWidth:preferredWidth];
+    [self.stepContentView.textLabel setPreferredMaxLayoutWidth:preferredWidth];
+    [self.stepContentView.detailTextLabel setPreferredMaxLayoutWidth:preferredWidth];
+    
+    CGFloat estimatedHeight = [self.stepContentView systemLayoutSizeFittingSize:UILayoutFittingCompressedSize].height;
+    CGRect bounds = CGRectMake(0.0, 0.0, self.stepContentView.bounds.size.width, self.stepContentView.bounds.size.height);
+    bounds.size.height = estimatedHeight;
+    [self.stepContentView setBounds:bounds];
 }
 
-- (void)updateConstraints {
-    if (_constraints) {
-        [NSLayoutConstraint deactivateConstraints:_constraints];
-        _constraints = nil;
+- (void)setTapOffView:(UIView *)tapOffView {
+    _tapOffView = tapOffView;
+    
+    [_tapOffGestureRecognizer.view removeGestureRecognizer:_tapOffGestureRecognizer];
+    
+    _tapOffGestureRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tapOffAction:)];
+    _tapOffGestureRecognizer.delegate = self;
+    [(tapOffView ? : _tableView) addGestureRecognizer:_tapOffGestureRecognizer];
+}
+
+- (void)setupTableViewConstraints {
+    _tableView.translatesAutoresizingMaskIntoConstraints = NO;
+    self.stepContentView.translatesAutoresizingMaskIntoConstraints = NO;
+    [self setTableViewTopConstraint];
+    [self setTableViewBottomConstraint];
+    [NSLayoutConstraint activateConstraints:@[
+                                              _tableViewTopConstraint,
+                                              [NSLayoutConstraint constraintWithItem:_tableView
+                                                                           attribute:NSLayoutAttributeLeft
+                                                                           relatedBy:NSLayoutRelationEqual
+                                                                              toItem:self
+                                                                           attribute:NSLayoutAttributeLeft
+                                                                          multiplier:1.0
+                                                                            constant:0.0],
+                                              [NSLayoutConstraint constraintWithItem:_tableView
+                                                                           attribute:NSLayoutAttributeRight
+                                                                           relatedBy:NSLayoutRelationEqual
+                                                                              toItem:self
+                                                                           attribute:NSLayoutAttributeRight
+                                                                          multiplier:1.0
+                                                                            constant:0.0],
+                                              [NSLayoutConstraint constraintWithItem:self.stepContentView
+                                                                           attribute:NSLayoutAttributeCenterX
+                                                                           relatedBy:NSLayoutRelationEqual
+                                                                              toItem:_tableView
+                                                                           attribute:NSLayoutAttributeCenterX
+                                                                          multiplier:1.0
+                                                                            constant:0.0],
+                                              [NSLayoutConstraint constraintWithItem:self.stepContentView
+                                                                           attribute:NSLayoutAttributeWidth
+                                                                           relatedBy:NSLayoutRelationEqual
+                                                                              toItem:_tableView
+                                                                           attribute:NSLayoutAttributeWidth
+                                                                          multiplier:1.0
+                                                                            constant:0.0]
+                                              ]];
+}
+
+- (void)setTableViewTopConstraint {
+    _tableViewTopConstraint = [NSLayoutConstraint constraintWithItem:_tableView
+                                                           attribute:NSLayoutAttributeTop
+                                                           relatedBy:NSLayoutRelationEqual
+                                                              toItem:self.stepTopContentImage ? self : self.safeAreaLayoutGuide
+                                                           attribute:NSLayoutAttributeTop
+                                                          multiplier:1.0
+                                                            constant:0.0];
+}
+
+- (void)updateTableViewTopConstraint {
+    if (_tableViewTopConstraint && _tableViewTopConstraint.isActive) {
+        [NSLayoutConstraint deactivateConstraints:@[_tableViewTopConstraint]];
     }
-    [super updateConstraints];
-    
-    NSMutableArray *constraints = [NSMutableArray array];
-    
-    [constraints addObject:[NSLayoutConstraint constraintWithItem:_continueSkipContainerView
-                                                        attribute:NSLayoutAttributeWidth
-                                                        relatedBy:NSLayoutRelationLessThanOrEqual
-                                                           toItem:_realFooterView
-                                                        attribute:NSLayoutAttributeWidth multiplier:1 constant:0]];
-    
-    [constraints addObject:[NSLayoutConstraint constraintWithItem:_continueSkipContainerView
-                                                        attribute:NSLayoutAttributeCenterX
-                                                        relatedBy:NSLayoutRelationEqual
-                                                           toItem:_realFooterView
-                                                        attribute:NSLayoutAttributeCenterX multiplier:1 constant:0]];
-    
-    [constraints addObject:[NSLayoutConstraint constraintWithItem:_continueSkipContainerView
-                                                        attribute:NSLayoutAttributeTop
-                                                        relatedBy:NSLayoutRelationGreaterThanOrEqual
-                                                           toItem:_realFooterView
-                                                        attribute:NSLayoutAttributeTop multiplier:1 constant:0]];
-    
-    _bottomConstraint = [NSLayoutConstraint constraintWithItem:_continueSkipContainerView
-                                                     attribute:NSLayoutAttributeBottom
-                                                     relatedBy:NSLayoutRelationEqual
-                                                        toItem:_realFooterView
-                                                     attribute:NSLayoutAttributeBottomMargin multiplier:1 constant:0];
-    _bottomConstraint.priority = UILayoutPriorityDefaultHigh-1;
-    [constraints addObject:_bottomConstraint];
-    
-    [self updateContinueButtonConstraints];
-    [NSLayoutConstraint activateConstraints:constraints];
-    _constraints = constraints;
+    [self setTableViewTopConstraint];
+    [NSLayoutConstraint activateConstraints:@[_tableViewTopConstraint]];
 }
 
-- (BOOL)view:(UIView *)view hasFirstResponderOrTableViewCellContainingPoint:(CGPoint)p {
-    
-    UIView *v = [_tableView hitTest:p withEvent:nil];
+- (void)stepContentViewImageChanged:(NSNotification *)notification {
+    [super stepContentViewImageChanged:notification];
+    [self updateTableViewTopConstraint];
+}
+
+- (void)setTableViewBottomConstraint {
+    CGFloat bottomConstant = (self.isNavigationContainerScrollable == YES) ? 0 : -self.navigationFooterView.frame.size.height;
+    _tableViewBottomConstraint = [NSLayoutConstraint constraintWithItem:_tableView
+                                                              attribute:NSLayoutAttributeBottom
+                                                              relatedBy:NSLayoutRelationEqual
+                                                                 toItem:self
+                                                              attribute:NSLayoutAttributeBottom
+                                                             multiplier:1.0
+                                                               constant:bottomConstant];
+}
+
+- (void)updateTableViewBottomConstraint {
+    if (_tableViewBottomConstraint) {
+        [NSLayoutConstraint deactivateConstraints:@[_tableViewBottomConstraint]];
+    }
+    [self setTableViewBottomConstraint];
+    [NSLayoutConstraint activateConstraints:@[_tableViewBottomConstraint]];
+}
+
+- (BOOL)view:(UIView *)view hasFirstResponderOrTableViewCellContainingPoint:(CGPoint)point {
+    UIView *subview = [_tableView hitTest:point withEvent:nil];
     BOOL viewIsChildOfFirstResponder = NO;
-    while (v) {
+    while (subview) {
         // Ignore table view cells, since first responder will be manually managed for taps on them
-        if ([v isFirstResponder] || [v isKindOfClass:[UITableViewCell class]]) {
-            ORK_Log_Debug(@"v=%@",v);
+        if ([subview isFirstResponder] || [subview isKindOfClass:[UITableViewCell class]]) {
             viewIsChildOfFirstResponder = YES;
             break;
         }
-        v = [v superview];
+        subview = [subview superview];
     }
-    
     return viewIsChildOfFirstResponder;
 }
 
-
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch {
-    
-    BOOL ret = [self view:_tableView hasFirstResponderOrTableViewCellContainingPoint:[touch locationInView:_tableView]];
-    return !ret;
+    BOOL shouldReceiveTouch = [self view:_tableView hasFirstResponderOrTableViewCellContainingPoint:[touch locationInView:_tableView]];
+    return !shouldReceiveTouch;
 }
 
 - (void)tapOffAction:(UITapGestureRecognizer *)recognizer {
     // On a tap, dismiss the keyboard if the tap was not inside a view that is first responder or a child of a first responder.
-    
     BOOL viewIsChildOfFirstResponder = [self view:_tableView hasFirstResponderOrTableViewCellContainingPoint:[recognizer locationInView:_tableView]];
     
-    if (! viewIsChildOfFirstResponder) {
+    if (!viewIsChildOfFirstResponder) {
         [_tableView endEditing:NO];
     }
 }
 
-- (void)dealloc {
-    [self registerForKeyboardNotifications:NO];
-}
-
-- (void)registerForKeyboardNotifications:(BOOL)shouldRegister {
-    NSNotificationCenter *nfc = [NSNotificationCenter defaultCenter];
-    if (shouldRegister) {
-        [nfc addObserver:self
-                selector:@selector(keyboardWillShow:)
-                    name:UIKeyboardWillShowNotification object:nil];
-        
-        [nfc addObserver:self
-                selector:@selector(keyboardWillHide:)
-                    name:UIKeyboardWillHideNotification object:nil];
-        [nfc addObserver:self
-                selector:@selector(keyboardFrameWillChange:)
-                    name:UIKeyboardWillChangeFrameNotification object:nil];
-    } else {
-        [nfc removeObserver:self name:UIKeyboardWillShowNotification object:nil];
-        [nfc removeObserver:self name:UIKeyboardWillHideNotification object:nil];
-        [nfc removeObserver:self name:UIKeyboardWillChangeFrameNotification object:nil];
-    }
-    
-}
-
-- (void)willMoveToWindow:(UIWindow *)newWindow {
-    [super willMoveToWindow:newWindow];
-    ORKScreenType screenType = ORKGetScreenTypeForWindow(newWindow);
-    _continueSkipContainerView.topMargin = ORKGetMetricForScreenType(ORKScreenMetricContinueButtonTopMargin, screenType);
-    if (newWindow) {
-        [self registerForKeyboardNotifications:YES];
-    } else {
-        [self registerForKeyboardNotifications:NO];
-    }
-}
-
-- (void)updateToInsets:(UIEdgeInsets)insets {
-    CGPoint savedOffset = self.tableView.contentOffset;
-    self.tableView.contentInset = insets;
-    self.tableView.scrollIndicatorInsets = insets;
-    self.tableView.contentOffset = savedOffset;
-}
-
 - (CGSize)keyboardIntersectionSizeFromNotification:(NSNotification *)notification {
-    
     CGRect keyboardFrame = [[notification.userInfo valueForKey:UIKeyboardFrameEndUserInfoKey] CGRectValue];
     keyboardFrame = [self convertRect:keyboardFrame fromView:nil];
     
@@ -279,38 +372,28 @@
 }
 
 - (void)scrollCellVisible:(UITableViewCell *)cell animated:(BOOL)animated {
-    
     if (cell == nil) {
         return;
     }
-
+    
     UIScrollView *scrollView = _scrollView;
     
-    ORK_Log_Debug(@"height=%lf insetsbottom=%lf", scrollView.bounds.size.height, scrollView.scrollIndicatorInsets.bottom);
-    CGFloat visibleHeight = (scrollView.bounds.size.height - scrollView.scrollIndicatorInsets.bottom);
+    CGFloat visibleHeight = (scrollView.bounds.size.height - scrollView.contentInset.bottom);
     CGRect visibleRect = CGRectMake(0, scrollView.contentOffset.y, scrollView.bounds.size.width, visibleHeight);
     CGRect desiredRect = [scrollView convertRect:cell.bounds fromView:cell];
     
-    CGRect bds = scrollView.bounds;
-    CGFloat offsetY = bds.origin.y;
+    CGRect bounds = scrollView.bounds;
+    CGFloat offsetY = bounds.origin.y;
     BOOL containByVisibleRect = CGRectContainsRect(visibleRect, desiredRect);
     
     if (containByVisibleRect == NO) {
-        
-        
-        if (CGRectGetHeight(desiredRect) > CGRectGetHeight(visibleRect))
-        {
+        if (CGRectGetHeight(desiredRect) > CGRectGetHeight(visibleRect)) {
             CGFloat desiredCenterY = CGRectGetMidY(desiredRect);
-            offsetY = desiredCenterY - visibleRect.size.height*0.5;
-        }
-        else
-        {
-            if (CGRectGetMinY(desiredRect) < CGRectGetMinY(visibleRect))
-            {
+            offsetY = desiredCenterY - visibleRect.size.height * 0.5;
+        } else {
+            if (CGRectGetMinY(desiredRect) < CGRectGetMinY(visibleRect)) {
                 offsetY = CGRectGetMinY(desiredRect);
-            }
-            else
-            {
+            } else {
                 offsetY = CGRectGetMinY(desiredRect) - (CGRectGetHeight(visibleRect) - CGRectGetHeight(desiredRect));
             }
         }
@@ -318,113 +401,27 @@
     }
     
     // If there's room, we'd like to leave space below so you can tap on the next cell
-    ORKScreenType screenType = ORKGetScreenTypeForWindow(self.window);
     // Only go 3/4 of a cell extra; otherwise user might think they tapped the wrong cell
-    CGFloat desiredExtraSpace  = floor(ORKGetMetricForScreenType(ORKScreenMetricTextFieldCellHeight, screenType)*3/4);
+    CGFloat desiredExtraSpace  = floor(ORKGetMetricForWindow(ORKScreenMetricTextFieldCellHeight, self.window) * (3 / 4.0));
     CGFloat visibleSpaceAboveDesiredRect = CGRectGetMinY(desiredRect) - offsetY;
     CGFloat visibleSpaceBelowDesiredRect = offsetY + visibleHeight - CGRectGetMaxY(desiredRect);
     if ((visibleSpaceAboveDesiredRect > 0) && (visibleSpaceBelowDesiredRect < desiredExtraSpace)) {
         CGFloat additionalOffset = MIN(visibleSpaceAboveDesiredRect, desiredExtraSpace - visibleSpaceBelowDesiredRect);
         offsetY += additionalOffset;
-        
         offsetY = MAX(offsetY, 0);
     }
     
-    
-    if (offsetY != bds.origin.y) {
-        bds.origin.y = offsetY;
+    if (offsetY != bounds.origin.y) {
+        bounds.origin.y = offsetY;
         
         if (animated) {
             [UIView animateWithDuration:0.3 animations:^{
-                scrollView.bounds = bds;
+                scrollView.bounds = bounds;
             }];
         } else {
-            scrollView.bounds = bds;
+            scrollView.bounds = bounds;
         }
     }
-   
 }
-
-- (void)animateLayoutForKeyboardNotification:(NSNotification *)notification {
-    
-    NSTimeInterval animationDuration = [notification.userInfo[UIKeyboardAnimationDurationUserInfoKey] doubleValue];
-    
-    UIScrollView *scrollView = _scrollView;
-    
-    [UIView animateWithDuration:animationDuration delay:0 options:UIViewAnimationOptionBeginFromCurrentState animations:^{
-        
-        CGRect bds = scrollView.bounds;
-        CGSize contentSize = scrollView.contentSize;
-        
-        CGSize intersectionSize = [self keyboardIntersectionSizeFromNotification:notification];
-        
-        // Keep track of the keyboard overlap, so we can adjust the constraint properly.
-        _keyboardOverlap = intersectionSize.height;
-        
-        [self updateContinueButtonConstraints];
-        
-        // Trigger layout inside the animation block to get the constraint change to animate.
-        [scrollView layoutIfNeeded];
-        
-        if (_keyboardIsUp) {
-            
-            // The content ends at the bottom of the continueSkipContainer.
-            // We want to calculate new insets so it's possible to scroll it fully visible, but no more.
-            // Made a little more complicated because the contentSize will still extend below the bottom of this container,
-            // because we haven't changed our bounds.
-            CGFloat contentMaxY = CGRectGetMaxY([scrollView convertRect:_continueSkipContainerView.bounds fromView:_continueSkipContainerView]) + _realFooterView.layoutMargins.bottom;
-            
-            CGFloat keyboardOverlapWithActualContent = MAX(contentMaxY - (contentSize.height - intersectionSize.height), 0);
-            UIEdgeInsets insets = (UIEdgeInsets){.bottom = keyboardOverlapWithActualContent };
-            scrollView.contentInset = insets;
-            scrollView.bounds = bds;
-            
-            // Make cell visible
-            {
-                UIView *firstResponderView = (UIView *)[[UIApplication sharedApplication] ork_currentFirstResponderView];
-                UIView *cell = firstResponderView;
-                while (cell && [cell isKindOfClass:[UITableViewCell class]] == NO) {
-                    cell = cell.superview;
-                }
-                [self scrollCellVisible:(UITableViewCell *)cell animated:NO];
-            }
-        }
-        
-    } completion:nil];
-}
-
-- (void)keyboardFrameWillChange:(NSNotification *)notification {
-    CGSize intersectionSize = [self keyboardIntersectionSizeFromNotification:notification];
-    
-    // Assume the overlap is at the bottom of the view
-    UIEdgeInsets insets = (UIEdgeInsets){.bottom = intersectionSize.height};
-    
-    [self updateToInsets:insets];
-    
-    _keyboardIsUp = YES;
-    [self animateLayoutForKeyboardNotification:notification];
-}
-
-- (void)keyboardWillShow:(NSNotification *)notification {
-    CGSize intersectionSize = [self keyboardIntersectionSizeFromNotification:notification];
-    
-    // Assume the overlap is at the bottom of the view
-    UIEdgeInsets insets = (UIEdgeInsets){.bottom = intersectionSize.height};
-    
-    [self updateToInsets:insets];
-    
-    _keyboardIsUp = YES;
-    [self animateLayoutForKeyboardNotification:notification];
-}
-
-
-- (void)keyboardWillHide:(NSNotification *)notification
-{
-    [self updateToInsets:UIEdgeInsetsZero];
-    
-    _keyboardIsUp = NO;
-    [self animateLayoutForKeyboardNotification:notification];
-}
-
 
 @end

@@ -28,8 +28,8 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 // Shared header for accessibility functionality.
-
-#import "UIView+ORKAccessibility.h"
 #import "ORKAccessibilityFunctions.h"
-
+#import "ORKGraphChartAccessibilityElement.h"
+#import "UIView+ORKAccessibility.h"

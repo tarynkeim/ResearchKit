@@ -28,9 +28,12 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKHeadlineLabel.h"
-#import "ORKHelpers.h"
+
+#import "ORKHelpers_Internal.h"
 #import "ORKSkin.h"
+
 
 @implementation ORKHeadlineLabel
 
@@ -38,11 +41,8 @@
     UIFontDescriptor *descriptor = [UIFontDescriptor preferredFontDescriptorWithTextStyle:UIFontTextStyleHeadline];
     const CGFloat defaultHeadlineSize = 17;
     
-    UIWindow *window = [[[UIApplication sharedApplication] windows] firstObject];
-    ORKScreenType screenType = ORKGetScreenTypeForWindow(window);
-    
-    CGFloat fontSize = [[descriptor objectForKey: UIFontDescriptorSizeAttribute] doubleValue] - defaultHeadlineSize + ORKGetMetricForScreenType(surveyMode?ORKScreenMetricFontSizeSurveyHeadline: ORKScreenMetricFontSizeHeadline, screenType);
-    CGFloat maxFontSize = ORKGetMetricForScreenType(surveyMode?ORKScreenMetricMaxFontSizeSurveyHeadline:ORKScreenMetricMaxFontSizeHeadline, screenType);
+    CGFloat fontSize = [[descriptor objectForKey: UIFontDescriptorSizeAttribute] doubleValue] - defaultHeadlineSize + ORKGetMetricForWindow(surveyMode ? ORKScreenMetricFontSizeSurveyHeadline : ORKScreenMetricFontSizeHeadline, nil);
+    CGFloat maxFontSize = ORKGetMetricForWindow(surveyMode ? ORKScreenMetricMaxFontSizeSurveyHeadline : ORKScreenMetricMaxFontSizeHeadline, nil);
     
     return ORKLightFontWithSize(MIN(maxFontSize, fontSize));
 }
@@ -61,8 +61,7 @@
 }
 
 // Nasty override (hack)
-- (void)updateAppearance
-{
+- (void)updateAppearance {
     self.font = [self defaultFont];
     [self invalidateIntrinsicContentSize];
 }

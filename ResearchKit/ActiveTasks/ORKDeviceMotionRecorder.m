@@ -28,20 +28,25 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKDeviceMotionRecorder.h"
-#import "ORKHelpers.h"
-#import "ORKRecorder_Internal.h"
-#import "ORKRecorder_Private.h"
+
 #import "ORKDataLogger.h"
-#import <CoreMotion/CoreMotion.h>
+
+#import "ORKRecorder_Internal.h"
+
+#import "ORKHelpers_Internal.h"
 #import "CMDeviceMotion+ORKJSONDictionary.h"
 
-@interface ORKDeviceMotionRecorder()
-{
+@import CoreMotion;
+
+
+@interface ORKDeviceMotionRecorder () {
     ORKDataLogger *_logger;
 }
 
 @property (nonatomic, strong) CMMotionManager *motionManager;
+
 @property (nonatomic) NSTimeInterval uptime;
 
 @end
@@ -49,37 +54,28 @@
 
 @implementation ORKDeviceMotionRecorder
 
-
 - (instancetype)initWithIdentifier:(NSString *)identifier
                          frequency:(double)frequency
-                             step:(ORKStep *)step
-                  outputDirectory:(NSURL *)outputDirectory
-{
+                              step:(ORKStep *)step
+                   outputDirectory:(NSURL *)outputDirectory {
     self = [super initWithIdentifier:identifier
                                 step:step
                      outputDirectory:outputDirectory];
-    if (self)
-    {
+    if (self) {
         self.frequency = frequency;
         self.continuesInBackground = YES;
     }
     return self;
 }
 
-
-- (void)dealloc
-{
+- (void)dealloc {
     [_logger finishCurrentLog];
 }
 
-- (void)setFrequency:(double)frequency
-{
-    if (frequency <= 0)
-    {
+- (void)setFrequency:(double)frequency {
+    if (frequency <= 0) {
         _frequency = 1;
-    }
-    else
-    {
+    } else {
         _frequency = frequency;
     }
 }
@@ -89,36 +85,34 @@
 }
 
 - (void)start {
-    
     [super start];
     
-    if (! _logger) {
-        NSError *err = nil;
-        _logger = [self makeJSONDataLoggerWithError:&err];
-        if (! _logger) {
-            [self finishRecordingWithError:err];
+    if (!_logger) {
+        NSError *error = nil;
+        _logger = [self makeJSONDataLoggerWithError:&error];
+        if (!_logger) {
+            [self finishRecordingWithError:error];
             return;
         }
     }
     
     self.motionManager = [self createMotionManager];
-    self.motionManager.deviceMotionUpdateInterval = 1.0/_frequency;
+    self.motionManager.deviceMotionUpdateInterval = 1.0 / _frequency;
     
     self.uptime = [NSProcessInfo processInfo].systemUptime;
     
     [self.motionManager stopDeviceMotionUpdates];
     
-    [self.motionManager
-     startDeviceMotionUpdatesToQueue:[NSOperationQueue mainQueue]
-     withHandler:^(CMDeviceMotion *data, NSError *error)
-     {
+    [self.motionManager startDeviceMotionUpdatesToQueue:[NSOperationQueue mainQueue] withHandler:^(CMDeviceMotion *data, NSError *error) {
          BOOL success = NO;
-         if (data)
-         {
+         if (data) {
              success = [_logger append:[data ork_JSONDictionary] error:&error];
+             id delegate = self.delegate;
+             if ([delegate respondsToSelector:@selector(deviceMotionRecorderDidUpdateWithMotion:)]) {
+                 [delegate deviceMotionRecorderDidUpdateWithMotion:data];
+             }
          }
-         if (!success)
-         {
+         if (!success) {
              dispatch_async(dispatch_get_main_queue(), ^{
                  [self finishRecordingWithError:error];
              });
@@ -126,12 +120,9 @@
      }];
 }
 
-
-- (NSString *)recorderType
-{
+- (NSString *)recorderType {
     return @"deviceMotion";
 }
-
 
 - (void)stop {
     [self doStopRecording];
@@ -148,16 +139,14 @@
     [super stop];
 }
 
-- (void)doStopRecording
-{
+- (void)doStopRecording {
     if (self.isRecording) {
         [self.motionManager stopDeviceMotionUpdates];
         self.motionManager = nil;
     }
 }
 
-- (void)finishRecordingWithError:(NSError *)error
-{
+- (void)finishRecordingWithError:(NSError *)error {
     [self doStopRecording];
     [super finishRecordingWithError:error];
 }
@@ -170,8 +159,7 @@
     return @"application/json";
 }
 
-- (void)reset
-{
+- (void)reset {
     [super reset];
     
     _logger = nil;
@@ -180,15 +168,10 @@
 @end
 
 
-@interface ORKDeviceMotionRecorderConfiguration()
-@end
-
-
 @implementation ORKDeviceMotionRecorderConfiguration
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wobjc-designated-initializers"
-
 - (instancetype)initWithIdentifier:(NSString *)identifier {
     @throw [NSException exceptionWithName:NSGenericException reason:@"Use subclass designated initializer" userInfo:nil];
 }
@@ -200,35 +183,29 @@
     }
     return self;
 }
-
 #pragma clang diagnostic pop
 
-- (ORKRecorder *)recorderForStep:(ORKStep *)step outputDirectory:(NSURL *)outputDirectory
-{
+- (ORKRecorder *)recorderForStep:(ORKStep *)step outputDirectory:(NSURL *)outputDirectory {
     return [[ORKDeviceMotionRecorder alloc] initWithIdentifier:self.identifier
                                                      frequency:self.frequency
                                                           step:step
                                                outputDirectory:outputDirectory];
 }
 
-- (instancetype)initWithCoder:(NSCoder *)aDecoder
-{
+- (instancetype)initWithCoder:(NSCoder *)aDecoder {
     self = [super initWithCoder:aDecoder];
-    if (self)
-    {
+    if (self) {
         ORK_DECODE_DOUBLE(aDecoder, frequency);
     }
     return self;
 }
 
-- (void)encodeWithCoder:(NSCoder *)aCoder
-{
+- (void)encodeWithCoder:(NSCoder *)aCoder {
     [super encodeWithCoder:aCoder];
     ORK_ENCODE_DOUBLE(aCoder, frequency);
 }
 
-+ (BOOL)supportsSecureCoding
-{
++ (BOOL)supportsSecureCoding {
     return YES;
 }
 
@@ -237,7 +214,7 @@
     
     __typeof(self) castObject = object;
     return (isParentSame &&
-            (self.frequency == castObject.frequency)) ;
+            (self.frequency == castObject.frequency));
 }
 
 - (ORKPermissionMask)requestedPermissionMask {

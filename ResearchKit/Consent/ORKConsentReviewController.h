@@ -29,10 +29,9 @@
  */
 
 
-#import <UIKit/UIKit.h>
-#import "ORKConsentDocument.h"
-#import <ResearchKit/ResearchKit_Private.h>
-#import "ORKSignatureView.h"
+@import UIKit;
+@import WebKit;
+
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -45,17 +44,21 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
+
 @interface ORKConsentReviewController : UIViewController
 
-- (instancetype)initWithHTML:(NSString *)html delegate:(id<ORKConsentReviewControllerDelegate>)delegate;
+- (instancetype)initWithHTML:(NSString *)html delegate:(id<ORKConsentReviewControllerDelegate>)delegate requiresScrollToBottom:(BOOL)requiresScrollToBottom;
 
-@property (nonatomic, strong, nullable) UIWebView *webView;
+@property (nonatomic, strong, nullable) WKWebView *webView;
+
+@property (nonatomic, strong, nullable) UIBarButtonItem *cancelButtonItem;
 
 @property (nonatomic, weak, nullable) id<ORKConsentReviewControllerDelegate> delegate;
 
 @property (nonatomic, strong, nullable) NSString *localizedReasonForConsent;
 
+- (void)setTextForiPadStepTitleLabel:(NSString *)text;
+
 @end
 
 NS_ASSUME_NONNULL_END
-

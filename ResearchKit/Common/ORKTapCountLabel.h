@@ -28,12 +28,19 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKLabel.h"
+#import <ResearchKit/ORKDefines.h>
+
+
+NS_ASSUME_NONNULL_BEGIN
 
 /**
- *  Display tapping count in tapping interval active task
+ Display tapping count in tapping interval active task
  */
 ORK_CLASS_AVAILABLE
 @interface ORKTapCountLabel : ORKLabel
 
 @end
+
+NS_ASSUME_NONNULL_END

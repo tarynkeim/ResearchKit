@@ -29,12 +29,15 @@
  */
 
 
-#import <Foundation/Foundation.h>
-#import <ResearchKit/ORKDefines.h>
-#import <ResearchKit/ORKStep.h>
-#import <ResearchKit/ORKResult.h>
+@import Foundation;
+@import HealthKit;
+#import <ResearchKit/ORKTypes.h>
+
 
 NS_ASSUME_NONNULL_BEGIN
+
+@class ORKStep;
+@class ORKTaskResult;
 
 /**
 
@@ -51,6 +54,9 @@ typedef struct {
     
     /// The total number of steps in the task.
     NSUInteger total;
+    
+    /// Indicates if the the step should present a progress label
+    BOOL shouldBePresented;
 } ORKTaskProgress ORK_AVAILABLE_DECL;
 
 /**
@@ -62,6 +68,34 @@ typedef struct {
  @return A task progress structure.
  */
 ORK_EXTERN ORKTaskProgress ORKTaskProgressMake(NSUInteger current, NSUInteger total) ORK_AVAILABLE_DECL;
+
+/**
+
+ `ORKTaskTotalProgress` is a structure that represents how far a task has progressed based on the total amount of questions.
+  
+ Note that the values in an `ORKTotalTaskProgress` structure are used only for display; you don't use the values to access the steps in a task.
+ */
+typedef struct {
+    /// The position of the current question based on the total amount of questions within the task.
+    NSUInteger currentStepStartingProgressPosition;
+    
+    /// The total number of questions in the task.
+    NSUInteger total;
+    
+    /// Determines if the task should display the progress based on the total amount of questions in the task or the total amount in each step
+    BOOL stepShouldShowTotalProgress;
+} ORKTaskTotalProgress ORK_AVAILABLE_DECL;
+
+/**
+ Returns a task progress structure with the specified current and total values.
+ 
+ @param currentStepStartingProgressPosition   The position of the current question based on the total amount of questions within the task.
+ @param total     The total number of questions in the task.
+ @param stepShouldShowTotalProgress     Determines if the task should display the progress based on the total amount of questions in the task or the total amount in each step
+ 
+ @return A task progress structure.
+ */
+ORK_EXTERN ORKTaskTotalProgress ORKTaskTotalProgressMake(NSUInteger currentStepStartingProgressPosition, NSUInteger total, BOOL stepShouldShowTotalProgress) ORK_AVAILABLE_DECL;
 
 /**
  The `ORKTask` protocol defines a task to be carried out by a participant
@@ -137,7 +171,6 @@ ORK_AVAILABLE_DECL
 - (nullable ORKStep *)stepBeforeStep:(nullable ORKStep *)step withResult:(ORKTaskResult *)result;
 
 @optional
-
 /**
  Returns the step that matches the specified identifier.
  
@@ -159,13 +192,44 @@ ORK_AVAILABLE_DECL
  this method to control what is displayed; if you don't implement this method, the progress label does not appear.
  If the returned `ORKTaskProgress` object has a count of 0, the progress is not displayed.
 
- 
  @param step    The current step.
  @param result  A snapshot of the current set of results.
  
  @return The current step's index and the total number of steps in the task, as an `ORKTaskProgress` object.
  */
 - (ORKTaskProgress)progressOfCurrentStep:(ORKStep *)step withResult:(ORKTaskResult *)result;
+
+/**
+ Returns the progress of the current step based on the total amount of questions in the task.
+ 
+ During a task, each questions can display its progress (that is, the current question number out of the total amount of questions in the task) in its header view.
+
+ @param currentStep    The current step.
+ 
+ @return The current step's index and the total number of steps in the task, as an `ORKTaskProgress` object.
+ The index of the current step's first question, the total amount of questions in the task, and a BOOL to determine if the step should display its progress labels in this manner.
+ */
+- (ORKTaskTotalProgress)totalProgressOfCurrentStep:(ORKStep *)currentStep;
+
+/**
+ Returns true if the provided step is the first or last object in the array of steps
+
+ @param step    The current step.
+ */
+
+- (BOOL)shouldHideProgressFor:(ORKStep *)step;
+
+/**
+ Validates the task parameters.
+ 
+ The implementation of this method should check that all the task parameters are correct. An invalid task
+ is considered an unrecoverable error: the implementation should throw an exception on parameter validation failure.
+ For example, the `ORKOrderedTask` implementation makes sure that all its step identifiers are unique, throwing an
+ exception otherwise.
+ 
+ This method is usually called by a task view controller when its task is set.
+ */
+- (void)validateParameters;
 
 /**
  The set of HealthKit types that steps in the task need to be able to
@@ -181,8 +245,7 @@ requests access to these HealthKit types.
  
  See also: `requestedHealthKitTypesForWriting`.
  */
-@property (nonatomic, copy, readonly, nullable) NSSet *requestedHealthKitTypesForReading;
-
+@property (nonatomic, copy, readonly, nullable) NSSet<HKObjectType *> *requestedHealthKitTypesForReading;
 
 /**
  The set of HealthKit types for which the task needs to request write access.
@@ -193,7 +256,7 @@ requests access to these HealthKit types.
  
  See also: `requestedHealthKitTypesForReading`.
  */
-@property (nonatomic, copy, readonly, nullable) NSSet *requestedHealthKitTypesForWriting;
+@property (nonatomic, copy, readonly, nullable) NSSet<HKObjectType *> *requestedHealthKitTypesForWriting;
 
 /**
  The set of permissions requested by the task.
@@ -215,7 +278,6 @@ requests access to these HealthKit types.
  the task.
  */
 @property (nonatomic, readonly) BOOL providesBackgroundAudioPrompts;
-
 
 @end
 

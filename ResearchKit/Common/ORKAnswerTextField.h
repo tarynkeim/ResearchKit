@@ -28,13 +28,20 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <UIKit/UIKit.h>
+
+@import UIKit;
 #import "ORKDefaultFont.h"
-#import "ORKDefines_Private.h"
+#import "ORKDefines.h"
+
+
+NS_ASSUME_NONNULL_BEGIN
+
 /**
- *  Answer's text field.
+ Answer's text field.
  */
 ORK_CLASS_AVAILABLE
 @interface ORKAnswerTextField : UITextField <ORKDefaultFont>
 
 @end
+
+NS_ASSUME_NONNULL_END

@@ -1,5 +1,7 @@
 /*
  Copyright (c) 2015, Apple Inc. All rights reserved.
+ Copyright (c) 2015, Ricardo Sánchez-Sáez.
+ Copyright (c) 2015, Bruce Duncan.
  
  Redistribution and use in source and binary forms, with or without modification,
  are permitted provided that the following conditions are met:
@@ -30,20 +32,30 @@
 
 
 #import "ORKScaleSlider.h"
-#import "ORKAccessibility.h"
-#import "ORKDefines_Private.h"
+
+#import "ORKScaleRangeDescriptionLabel.h"
+#import "ORKScaleRangeImageView.h"
+#import "ORKScaleSliderView.h"
+
 #import "ORKAnswerFormat_Internal.h"
+
+#import "ORKAccessibility.h"
+#import "ORKSkin.h"
+
 
 @interface ORKScaleSlider ()
 
+@property (nonatomic, strong, nullable) CAGradientLayer *gradientLayer;
+
 @end
+
 
 @implementation ORKScaleSlider {
     CFAbsoluteTime _axLastOutputTime;
+    BOOL _thumbImageNeedsTransformUpdate;
 }
 
-- (instancetype)initWithFrame:(CGRect)frame
-{
+- (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
         UITapGestureRecognizer *tapGesture = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(sliderTouched:)];
@@ -52,25 +64,118 @@
         UIPanGestureRecognizer *panGesture = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(sliderTouched:)];
         [self addGestureRecognizer:panGesture];
         
-        self.minimumTrackTintColor = [UIColor clearColor];
-        self.maximumTrackTintColor = [UIColor clearColor];
+        if (@available(iOS 13.0, *)) {
+            self.maximumTrackTintColor = [UIColor systemGray3Color];
+        } else {
+            self.maximumTrackTintColor = [UIColor systemGrayColor];
+        }
+        
+        self.gradientLayer = [CAGradientLayer layer];
         
         _numberOfSteps = 2;
         
         self.showThumb = NO;
+        self.hideValueMarkers = NO;
+        self.isWaitingForUserFeedback = NO;
         
         _axLastOutputTime = 0;
+        _thumbImageNeedsTransformUpdate = NO;
     }
     return self;
 }
 
-- (void)setShowThumb:(BOOL)showThumb
-{
+- (void)setShowThumb:(BOOL)showThumb {
     _showThumb = showThumb;
+    [self setNeedsLayout];
 }
 
-- (void)sliderTouched:(UIGestureRecognizer *)gesture
-{
+- (void)setVertical:(BOOL)vertical {
+    if (vertical != _vertical) {
+        _vertical = vertical;
+        self.transform = _vertical ? CGAffineTransformMakeRotation(-M_PI_2) : CGAffineTransformIdentity;
+        _thumbImageNeedsTransformUpdate = YES;
+        [self invalidateIntrinsicContentSize];
+    }
+}
+
+- (void)setGradientColors:(nullable NSArray<UIColor *> *)gradientColors {
+    _gradientColors = [gradientColors copy];
+    if (gradientColors) {
+        NSMutableArray *cgGolors = [[NSMutableArray alloc] init];
+        for (UIColor *uiColor in gradientColors) {
+            [cgGolors addObject:(id)uiColor.CGColor];
+        }
+        _gradientLayer.colors = cgGolors;
+        [self.layer insertSublayer:_gradientLayer atIndex:0];
+    } else {
+        [_gradientLayer removeFromSuperlayer];
+    }
+}
+
+- (void)setGradientLocations:(nullable NSArray<NSNumber *> *)gradientLocations {
+    _gradientLocations = [gradientLocations copy];
+    _gradientLayer.locations = gradientLocations;
+}
+
+// Error prone: needs to be replaced by a custom thumb asset
+// Details here: https://github.com/ResearchKit/ResearchKit/pull/33#discussion_r28804792
+// Tracked here: https://github.com/ResearchKit/ResearchKit/issues/67
+- (UIView *)thumbImageSubview {
+    UIView *thumbImageSubview = nil;
+    CGRect bounds = self.bounds;
+    CGRect trackRect = [self trackRectForBounds:bounds];
+    CGRect thumbRect = [self thumbRectForBounds:bounds trackRect:trackRect value:self.value];
+    for (UIView *subview in self.subviews) {
+        if (CGRectEqualToRect(thumbRect, subview.frame)) {
+            thumbImageSubview = subview;
+            break;
+        }
+    }
+    return thumbImageSubview;
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    if (_thumbImageNeedsTransformUpdate) {
+        _thumbImageNeedsTransformUpdate = NO;
+        [self thumbImageSubview].transform = _vertical ? CGAffineTransformMakeRotation(M_PI_2) : CGAffineTransformIdentity;
+    }
+}
+
+- (CGSize)intrinsicContentSize {
+    CGSize intrinsicContentSize = [super intrinsicContentSize];
+    if (_vertical) {
+        CGFloat verticalScaleHeight = ORKGetMetricForWindow(ORKScreenMetricVerticalScaleHeight, self.window);
+        intrinsicContentSize = (CGSize){.width = verticalScaleHeight, .height = verticalScaleHeight};
+    }
+    return intrinsicContentSize;
+}
+
+- (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
+    BOOL pointInside = NO;
+    if (_vertical) {
+        
+        const CGFloat desiredSliderWidth = 44.0;
+        
+        if (_textChoices) {
+            if (point.y > (self.bounds.size.width - desiredSliderWidth) / 2) {
+                pointInside = [super pointInside:point withEvent:event];
+            }
+        } else {
+            // In vertical mode, we need to ignore the touch area for the needed extra width
+            const CGFloat actualWidth = self.bounds.size.width;
+            const CGFloat centerX = actualWidth / 2;
+            if (fabs(point.y - centerX) < desiredSliderWidth / 2) {
+                pointInside = [super pointInside:point withEvent:event];
+            }
+        }
+    } else {
+        pointInside = [super pointInside:point withEvent:event];
+    }
+    return pointInside;
+}
+
+- (void)sliderTouched:(UIGestureRecognizer *)gesture {
     self.showThumb = YES;
     
     CGPoint touchPoint = [gesture locationInView:self];
@@ -81,57 +186,68 @@
 }
 
 - (void)updateValueForTouchAtPoint:(CGPoint)touchPoint {
-    CGRect trackRect = [self trackRectForBounds:[self bounds]];
+    // Ignore negative (out of bounds) positions
+    if (touchPoint.x < 0) {
+        touchPoint.x = 0;
+    }
+    CGRect trackRect = [self trackRectForBounds:self.bounds];
     CGFloat position = (touchPoint.x - CGRectGetMinX(trackRect)) / CGRectGetWidth(trackRect);
     
-    CGFloat newValue = position * ([self maximumValue] - [self minimumValue]) + [self minimumValue];
+    CGFloat newValue = position * (self.maximumValue - self.minimumValue) + self.minimumValue;
     if (_numberOfSteps > 0) {
-        CGFloat stepSize = 1.0/_numberOfSteps;
-        NSUInteger steps = round(position/stepSize);
+        CGFloat stepSize = 1.0 / _numberOfSteps;
+        NSUInteger steps = round(position / stepSize);
         
-        newValue = stepSize*steps * ([self maximumValue] - [self minimumValue]) + [self minimumValue];
+        newValue = stepSize*steps * (self.maximumValue - self.minimumValue) + self.minimumValue;
     }
-    
     [self setValue:newValue animated:YES];
 }
 
-static CGFloat kLineWidth = 1.0;
-- (void)drawRect:(CGRect)rect
-{
-    CGRect trackRect = [self trackRectForBounds:[self bounds]];
-    CGFloat centerY = [self bounds].size.height / 2.0;
+static CGFloat LineWidth = 1.0;
+- (void)drawRect:(CGRect)rect {
+    CGRect bounds = self.bounds;
+    CGRect trackRect = [self trackRectForBounds:bounds];
+    CGFloat centerY = bounds.size.height / 2.0;
     
-    [[UIColor blackColor] set];
+    if (@available(iOS 13.0, *)) {
+        [[UIColor systemGray3Color] set];
+    } else {
+        [[UIColor systemGrayColor] setStroke];
+    }
     
-    if (_numberOfSteps > 0) {
+    if (_numberOfSteps > 0 && !_hideValueMarkers) {
         
         UIBezierPath *path = [[UIBezierPath alloc] init];
-        [path setLineWidth:kLineWidth];
+        [path setLineWidth:LineWidth];
         
         for (int discreteOffset = 0; discreteOffset <= _numberOfSteps; ++discreteOffset) {
-            CGFloat x = trackRect.origin.x + (trackRect.size.width-kLineWidth)*discreteOffset/_numberOfSteps;
-            x += kLineWidth/2; // Draw in center of line (center of pixel on 1x devices)
-            [path moveToPoint:CGPointMake(x, centerY - 3.5)];
-            [path addLineToPoint:CGPointMake(x, centerY + 3.5)];
+            CGFloat x = trackRect.origin.x + (trackRect.size.width - LineWidth) * discreteOffset / _numberOfSteps;
+            x += LineWidth / 2; // Draw in center of line (center of pixel on 1x devices)
+            [path moveToPoint:CGPointMake(x, centerY - 6)];
+            [path addLineToPoint:CGPointMake(x, centerY + 6)];
         }
-        [path stroke];
         
+        [path stroke];
+        [[UIBezierPath bezierPathWithRect:trackRect] fill];
     }
+    
+    UIBezierPath *path2 = [[UIBezierPath alloc] init];
+    [path2 setLineWidth:2.5];
+    [path2 moveToPoint:CGPointMake(2.0, centerY)];
+    [path2 addLineToPoint:CGPointMake(trackRect.size.width + 2.0, centerY)];
+    [path2 stroke];
     
     [[UIBezierPath bezierPathWithRect:trackRect] fill];
 }
-static CGFloat kPadding = 2.0;
-- (CGRect)trackRectForBounds:(CGRect)bounds
-{
-    
-    CGFloat centerY = bounds.size.height / 2.0 - kLineWidth/2;
-    CGRect rect = CGRectMake(bounds.origin.x + kPadding, centerY, bounds.size.width - 2 * kPadding, 1.0);
-    
+
+static const CGFloat Padding = 2.0;
+- (CGRect)trackRectForBounds:(CGRect)bounds {
+    CGFloat centerY = (bounds.size.height / 2.0) - (LineWidth / 2.0);
+    CGRect rect = CGRectMake(bounds.origin.x + Padding, centerY, bounds.size.width - 2 * Padding, 1.0);
     return rect;
 }
 
 - (CGRect)thumbRectForBounds:(CGRect)bounds trackRect:(CGRect)trackRect value:(float)value {
-    
     CGRect rect = [super thumbRectForBounds:bounds trackRect:trackRect value:value];
     
     // VO needs the thumb to be visible, so we don't hide it if VO is running.
@@ -140,10 +256,34 @@ static CGFloat kPadding = 2.0;
         return rect;
     }
     
-    CGFloat centerX = (value - [self minimumValue]) / ([self maximumValue] - [self minimumValue]) * trackRect.size.width + trackRect.origin.x;
+    CGFloat centerX = (value - self.minimumValue) / (self.maximumValue - self.minimumValue) * trackRect.size.width + trackRect.origin.x;
     rect.origin.x = centerX - rect.size.width / 2.0;
     
     return rect;
+}
+
+- (void)layoutSublayersOfLayer:(CALayer *)layer {
+    [super layoutSublayersOfLayer:layer];
+    if (_gradientColors) {
+        const CGFloat maxGradientHeight = 5;
+        CGRect trackRect = [self trackRectForBounds:self.bounds];
+        CGFloat gradientHeight = MIN(maxGradientHeight, CGRectGetMinY(trackRect) - CGRectGetMinY(self.bounds));
+        
+        if (_vertical) {
+            _gradientLayer.frame = CGRectMake(CGRectGetMinX(trackRect),
+                                              CGRectGetMidY(self.bounds) + 2 * gradientHeight,
+                                              CGRectGetWidth(trackRect),
+                                              gradientHeight);
+        } else {
+            _gradientLayer.frame = CGRectMake(CGRectGetMinX(trackRect),
+                                              CGRectGetMinY(self.bounds),
+                                              CGRectGetWidth(trackRect),
+                                              gradientHeight);
+        }
+        
+        _gradientLayer.startPoint = CGPointMake(0, 0.5);
+        _gradientLayer.endPoint = CGPointMake(1, 0.5);
+    }
 }
 
 #pragma mark - Accessibility
@@ -161,7 +301,26 @@ static CGFloat kPadding = 2.0;
 }
 
 - (NSString *)accessibilityLabel {
-    return [NSString stringWithFormat:ORKLocalizedString(@"AX_SLIDER_LABEL", nil), [self _axFormattedValue:self.minimumValue], [self _axFormattedValue:self.maximumValue]];
+    ORKScaleSliderView *sliderView = (ORKScaleSliderView *)[self ork_superviewOfType:[ORKScaleSliderView class]];
+    NSString *minimumValue = [self _axFormattedValue:self.minimumValue];
+    NSString *maximumValue = [self _axFormattedValue:self.maximumValue];
+    
+    // Include the range description labels if they are set.
+    if (sliderView.leftRangeDescriptionLabel.text.length > 0 && sliderView.rightRangeDescriptionLabel.text.length > 0) {
+        minimumValue = [minimumValue stringByAppendingFormat:@", %@, ", sliderView.leftRangeDescriptionLabel.text];
+        maximumValue = [maximumValue stringByAppendingFormat:@", %@, ", sliderView.rightRangeDescriptionLabel.text];
+    }
+    
+    // Include the range image accessibilty hints if they are set.
+    if (sliderView.leftRangeImageView.image.accessibilityHint.length > 0) {
+        minimumValue = [minimumValue stringByAppendingString:sliderView.leftRangeImageView.image.accessibilityHint];
+    }
+    if (sliderView.rightRangeImageView.image.accessibilityHint.length > 0) {
+        maximumValue = [maximumValue stringByAppendingString:sliderView.rightRangeImageView.image.accessibilityHint];
+    }
+    
+    
+    return [NSString stringWithFormat:ORKLocalizedString(@"AX_SLIDER_LABEL", nil), minimumValue, maximumValue];
 }
 
 - (NSString *)accessibilityValue {
@@ -169,8 +328,10 @@ static CGFloat kPadding = 2.0;
     // no value (nor a default value), hence we shouldn't return one to VO.
     if (!self.showThumb) {
         return nil;
+    } else if (self.textChoices) {
+        ORKTextChoice *textChoice = self.textChoices[(NSInteger)self.value - 1];
+        return textChoice.text;
     }
-    
     return [self _axFormattedValue:self.value];
 }
 
@@ -181,7 +342,6 @@ static CGFloat kPadding = 2.0;
     if ([self isDescendantOfView:containingCell]) {
         return UIAccessibilityConvertFrameToScreenCoordinates(containingCell.bounds, containingCell);
     }
-    
     return CGRectZero;
 }
 
@@ -190,13 +350,14 @@ static CGFloat kPadding = 2.0;
 - (NSString *)_axFormattedValue:(CGFloat)value {
     if (_numberOfSteps == 0) {
         return ORKAccessibilityFormatContinuousScaleSliderValue(value, self);
-    }
-    else {
+    } else {
         return ORKAccessibilityFormatScaleSliderValue(value, self);
     }
 }
 
 - (void)axBumpValue:(BOOL)increment {
+    self.showThumb = YES;
+    
     // If there's no fixed number of steps, we rely on the default implementation.
     if (_numberOfSteps == 0) {
         (increment ? [super accessibilityIncrement] : [super accessibilityDecrement]);
@@ -210,11 +371,10 @@ static CGFloat kPadding = 2.0;
     [self sendActionsForControlEvents:UIControlEventValueChanged];
 }
 
-static const NSTimeInterval kTimeoutSpeakThreshold = 1.0;
+static const NSTimeInterval TimeoutSpeakThreshold = 1.0;
 - (void)_announceNewValue {
-    if ( (CFAbsoluteTimeGetCurrent() - _axLastOutputTime) > kTimeoutSpeakThreshold )
-    {
-        UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, [self accessibilityValue]);
+    if ( (CFAbsoluteTimeGetCurrent() - _axLastOutputTime) > TimeoutSpeakThreshold ) {
+        UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, self.accessibilityValue);
         _axLastOutputTime = CFAbsoluteTimeGetCurrent();
     }
 }

@@ -28,12 +28,19 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
+@import UIKit;
 #import "ORKLabel.h"
 
+
+NS_ASSUME_NONNULL_BEGIN
+
 /**
- *  Text label for units during numeric value entry
+ Text label for units during numeric value entry
  */
 ORK_CLASS_AVAILABLE
 @interface ORKUnitLabel : ORKLabel
 
 @end
+
+NS_ASSUME_NONNULL_END

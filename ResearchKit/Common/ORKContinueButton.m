@@ -28,14 +28,16 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #import "ORKContinueButton.h"
+
 #import "ORKSkin.h"
 
-static const CGFloat _ContinueButtonTouchMargin = 10;
 
-@implementation ORKContinueButton
-{
-    NSLayoutConstraint *_widthConstraint;
+static const CGFloat ContinueButtonTouchMargin = 10;
+static const CGFloat ContinueButtonHeight = 50.0;
+
+@implementation ORKContinueButton {
     NSLayoutConstraint *_heightConstraint;
 }
 
@@ -44,67 +46,32 @@ static const CGFloat _ContinueButtonTouchMargin = 10;
     if (self) {
         [self setTitle:title forState:UIControlStateNormal];
         self.isDoneButton = isDoneButton;
-        self.contentEdgeInsets = (UIEdgeInsets){.left=6,.right=6};
-        
-        [self setNeedsUpdateConstraints];
-        
-        
+        self.contentEdgeInsets = (UIEdgeInsets){.left = 6, .right = 6};
+
+        [self setUpConstraints];
     }
     return self;
 }
 
-- (void)didMoveToWindow {
-    [self updateConstraintConstants];
-}
-
-
-- (void)updateConstraintConstants {
-    
-    UIWindow *window = [self window];
-    ORKScreenType screenType = ORKGetScreenTypeForWindow(window);
-    _widthConstraint.constant = ORKGetMetricForScreenType(ORKScreenMetricContinueButtonWidth, screenType);
-}
-
-- (void)updateConstraints {
-    if (! _heightConstraint) {
-        _heightConstraint = [NSLayoutConstraint constraintWithItem:self
-                                                         attribute:NSLayoutAttributeHeight
-                                                         relatedBy:NSLayoutRelationEqual
-                                                            toItem:nil
-                                                         attribute:NSLayoutAttributeNotAnAttribute
-                                                        multiplier:1
-                                                          constant:44];
-        _heightConstraint.active = YES;
-    }
-    if (! _widthConstraint) {
-        UIWindow *window = [self window];
-        ORKScreenType screenType = ORKGetScreenTypeForWindow(window);
-        _widthConstraint = [NSLayoutConstraint constraintWithItem:self
-                                                        attribute:NSLayoutAttributeWidth
-                                                        relatedBy:NSLayoutRelationGreaterThanOrEqual
-                                                           toItem:nil
-                                                        attribute:NSLayoutAttributeNotAnAttribute
-                                                       multiplier:1
-                                                         constant:ORKGetMetricForScreenType(ORKScreenMetricContinueButtonWidth, screenType)];
-    }
+- (void)setUpConstraints {
+    _heightConstraint = [NSLayoutConstraint constraintWithItem:self
+                                                     attribute:NSLayoutAttributeHeight
+                                                     relatedBy:NSLayoutRelationEqual
+                                                        toItem:nil
+                                                     attribute:NSLayoutAttributeNotAnAttribute
+                                                    multiplier:1.0
+                                                      constant:ContinueButtonHeight];
     _heightConstraint.active = YES;
-    _widthConstraint.active = YES;
-    [super updateConstraints];
-    
-}
-
-
-
-+ (UIFont *)defaultFont {
-    UIFontDescriptor *descriptor = [UIFontDescriptor preferredFontDescriptorWithTextStyle:UIFontTextStyleHeadline];
-    return [UIFont systemFontOfSize:[[descriptor objectForKey: UIFontDescriptorSizeAttribute] doubleValue]];
 }
 
 - (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
-    CGRect outsetRect = UIEdgeInsetsInsetRect(self.bounds, (UIEdgeInsets){-_ContinueButtonTouchMargin,-_ContinueButtonTouchMargin,-_ContinueButtonTouchMargin,-_ContinueButtonTouchMargin});
+    CGRect outsetRect = UIEdgeInsetsInsetRect(self.bounds,
+                                              (UIEdgeInsets){-ContinueButtonTouchMargin,
+                                                             -ContinueButtonTouchMargin,
+                                                             -ContinueButtonTouchMargin,
+                                                             -ContinueButtonTouchMargin});
     BOOL isInside = [super pointInside:point withEvent:event] || CGRectContainsPoint(outsetRect, point);
     return isInside;
 }
 
 @end
-

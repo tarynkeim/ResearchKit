@@ -28,10 +28,13 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <ResearchKit/ORKFormStep.h>
-#import <ResearchKit/ORKAnswerFormat.h>
+
+#import "ORKFormStep.h"
+
 
 NS_ASSUME_NONNULL_BEGIN
+
+@class ORKAnswerFormat;
 
 @interface ORKFormItem ()
 

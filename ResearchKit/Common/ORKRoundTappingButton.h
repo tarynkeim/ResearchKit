@@ -28,9 +28,18 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import "ORKBorderedButton.h"
+
+@import UIKit;
+#import <ResearchKit/ORKBorderedButton.h>
+
+
+NS_ASSUME_NONNULL_BEGIN
 
 ORK_CLASS_AVAILABLE
 @interface ORKRoundTappingButton : ORKBorderedButton
 
+@property (nonatomic, assign) CGFloat diameter;
+
 @end
+
+NS_ASSUME_NONNULL_END
